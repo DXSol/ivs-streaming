@@ -1,0 +1,209 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/events"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Edit Event</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="form-container">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Edit Event</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <div *ngIf="isLoading" class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Loading event...</p>
+        </div>
+
+        <div *ngIf="!isLoading">
+          <div *ngIf="successMessage" class="message success">
+            {{ successMessage }}
+          </div>
+
+          <div *ngIf="errorMessage" class="message error">
+            {{ errorMessage }}
+          </div>
+
+          <form (ngSubmit)="submitEvent()">
+            <div class="form-row">
+              <div class="segment-container">
+                <label class="segment-label">Event Type *</label>
+                <ion-segment [(ngModel)]="eventType" name="eventType">
+                  <ion-segment-button value="paid">
+                    <ion-label>Paid (IVS)</ion-label>
+                  </ion-segment-button>
+                  <ion-segment-button value="free">
+                    <ion-label>Free Main (YouTube)</ion-label>
+                  </ion-segment-button>
+                  <ion-segment-button value="free-short">
+                    <ion-label>Free Short (YouTube)</ion-label>
+                  </ion-segment-button>
+                </ion-segment>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <ion-item>
+                <ion-label position="stacked">Event Name *</ion-label>
+                <ion-input
+                  type="text"
+                  [(ngModel)]="title"
+                  name="title"
+                  placeholder="Enter event name"
+                  required
+                ></ion-input>
+              </ion-item>
+            </div>
+
+            <div class="form-row">
+              <ion-item>
+                <ion-label position="stacked">Description</ion-label>
+                <ion-textarea
+                  [(ngModel)]="description"
+                  name="description"
+                  placeholder="Enter event description"
+                  rows="3"
+                  autoGrow="true"
+                ></ion-textarea>
+              </ion-item>
+            </div>
+
+            <!-- IVS Channel ARN for Paid Events -->
+            <div class="form-row" *ngIf="eventType === 'paid'">
+              <ion-item>
+                <ion-label position="stacked">IVS Channel ARN *</ion-label>
+                <ion-input
+                  type="text"
+                  [(ngModel)]="ivsChannelArn"
+                  name="ivsChannelArn"
+                  placeholder="arn:aws:ivs:region:account:channel/..."
+                ></ion-input>
+              </ion-item>
+            </div>
+
+            <!-- YouTube URL for Free Events -->
+            <div class="form-row" *ngIf="eventType === 'free' || eventType === 'free-short'">
+              <ion-item>
+                <ion-label position="stacked">YouTube URL *</ion-label>
+                <ion-input
+                  type="url"
+                  [(ngModel)]="youtubeUrl"
+                  name="youtubeUrl"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                ></ion-input>
+              </ion-item>
+            </div>
+
+            <div class="form-row two-col">
+              <ion-item>
+                <ion-label position="stacked">Start Date & Time *</ion-label>
+                <ion-input
+                  type="datetime-local"
+                  [(ngModel)]="startsAt"
+                  name="startsAt"
+                  required
+                ></ion-input>
+              </ion-item>
+
+              <ion-item>
+                <ion-label position="stacked">End Date & Time *</ion-label>
+                <ion-input
+                  type="datetime-local"
+                  [(ngModel)]="endsAt"
+                  name="endsAt"
+                  required
+                ></ion-input>
+              </ion-item>
+            </div>
+
+            <!-- Ticket Price for Paid Events -->
+            <div class="form-row" *ngIf="eventType === 'paid'">
+              <ion-item>
+                <ion-label position="stacked">Ticket Price (₹) *</ion-label>
+                <ion-input
+                  type="number"
+                  [(ngModel)]="priceRupees"
+                  name="priceRupees"
+                  placeholder="500"
+                  min="0"
+                  required
+                ></ion-input>
+              </ion-item>
+            </div>
+
+            <!-- Deferred Live (Recording Only) Toggle for Paid Events -->
+            <div class="form-row" *ngIf="eventType === 'paid'">
+              <ion-item lines="none" class="toggle-item">
+                <ion-toggle [(ngModel)]="recordingOnly" name="recordingOnly" labelPlacement="start">
+                  <div class="toggle-content">
+                    <span class="toggle-label">Deferred Live (Recording Only)</span>
+                    <span class="toggle-hint">No live stream - recording available after event ends</span>
+                  </div>
+                </ion-toggle>
+              </ion-item>
+            </div>
+
+            <!-- Recording Available Hours (only for Deferred Live events) -->
+            <div class="form-row" *ngIf="eventType === 'paid' && recordingOnly">
+              <ion-item>
+                <ion-label position="stacked">Recording Available After (hours)</ion-label>
+                <ion-input
+                  type="number"
+                  [(ngModel)]="recordingAvailableHours"
+                  name="recordingAvailableHours"
+                  placeholder="0"
+                  min="0"
+                  max="168"
+                ></ion-input>
+              </ion-item>
+              <p class="field-hint">Hours after event ends when recording becomes available. Enter 0 for immediate availability.</p>
+            </div>
+
+            <div class="form-row">
+              <div class="upload-section">
+                <label class="upload-label">Poster Image</label>
+                
+                <div *ngIf="!posterPreview && !posterUrl" class="upload-area">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    (change)="onFileSelected($event)"
+                    #fileInput
+                    hidden
+                  >
+                  <ion-button fill="outline" (click)="fileInput.click()" [disabled]="isUploading">
+                    <span *ngIf="!isUploading">📷 Upload Image</span>
+                    <span *ngIf="isUploading">Uploading...</span>
+                  </ion-button>
+                  <p class="upload-hint">JPEG, PNG, GIF, WebP (max 5MB)</p>
+                </div>
+
+                <ion-progress-bar *ngIf="isUploading" type="indeterminate"></ion-progress-bar>
+
+                <div *ngIf="posterPreview || posterUrl" class="poster-preview">
+                  <img [src]="posterPreview || posterUrl" alt="Poster preview">
+                  <ion-button fill="clear" size="small" color="danger" (click)="removePoster()">
+                    ✕ Remove
+                  </ion-button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <ion-button type="submit" expand="block" [disabled]="isSubmitting">
+                <ion-spinner *ngIf="isSubmitting" name="crescent"></ion-spinner>
+                <span *ngIf="!isSubmitting">Update Event</span>
+              </ion-button>
+            </div>
+          </form>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <app-footer></app-footer>
+  </div>
+</ion-content>

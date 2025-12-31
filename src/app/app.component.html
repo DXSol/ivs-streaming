@@ -1,0 +1,22 @@
+<ion-app>
+  <!-- Admin Side Menu -->
+  <ion-menu *ngIf="isAdmin" contentId="main-content" menuId="admin-menu" side="start">
+    <ion-header>
+      <ion-toolbar color="primary">
+        <ion-title>Admin Menu</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <ion-list>
+        <ion-menu-toggle *ngFor="let item of adminMenuItems" auto-hide="false">
+          <ion-item [routerLink]="item.url" routerLinkActive="active" lines="none" detail="false">
+            <ion-icon slot="start" [name]="item.icon"></ion-icon>
+            <ion-label>{{ item.title }}</ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+      </ion-list>
+    </ion-content>
+  </ion-menu>
+
+  <ion-router-outlet id="main-content"></ion-router-outlet>
+</ion-app>

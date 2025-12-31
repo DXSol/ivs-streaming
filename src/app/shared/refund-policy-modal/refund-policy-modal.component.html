@@ -1,0 +1,37 @@
+<div class="modal-container">
+  <div class="modal-header">
+    <h2>Important: Refund Policy</h2>
+    <button class="close-btn" (click)="dismiss(false)">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+  </div>
+
+  <div class="modal-content">
+    <div class="highlight-box">
+      <p><strong>All ticket purchases are final and non-refundable.</strong></p>
+    </div>
+
+    <p class="section-text">As a concession for any technical difficulties during live streaming:</p>
+
+    <ul class="policy-list">
+      <li>All paid concerts are automatically recorded</li>
+      <li>Recordings available for <strong>3 days</strong> after the concert</li>
+      <li>This serves as an alternative viewing option</li>
+    </ul>
+
+    <div class="note-box">
+      <p>By proceeding, you acknowledge and accept this policy.</p>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <ion-button fill="outline" (click)="openFullTerms()" class="secondary-btn">
+      <ion-icon slot="start" name="document-text-outline"></ion-icon>
+      Read Full Terms
+    </ion-button>
+    <ion-button (click)="dismiss(true)" class="primary-btn">
+      <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+      I Understand
+    </ion-button>
+  </div>
+</div>

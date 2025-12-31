@@ -1,0 +1,272 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start" *ngIf="isAdmin">
+      <ion-menu-button menu="admin-menu"></ion-menu-button>
+    </ion-buttons>
+    <img src="assets/sampradaya-logo.png" alt="Sampradaya Logo" class="toolbar-logo">
+    <ion-buttons slot="end">
+      <!-- Contact Us button -->
+      <ion-button class="toolbar-icon-btn" fill="clear" (click)="openContactInfo()">
+        <ion-icon name="call-outline" style="color: #9d174d; font-size: 26px;"></ion-icon>
+      </ion-button>
+      <!-- Show login/register for logged out users -->
+      <ng-container *ngIf="!isLoggedIn">
+        <ion-button class="auth-btn login-btn" fill="clear" routerLink="/login">
+          Login
+        </ion-button>
+        <ion-button class="auth-btn register-btn" fill="solid" routerLink="/register">
+          Register
+        </ion-button>
+      </ng-container>
+      <!-- Show profile/logout for logged in users -->
+      <ng-container *ngIf="isLoggedIn">
+        <ion-button class="toolbar-icon-btn" fill="clear" routerLink="/profile">
+          <ion-icon name="person-circle-outline"></ion-icon>
+        </ion-button>
+        <ion-button class="toolbar-icon-btn" fill="clear" (click)="logout()">
+          <ion-icon name="log-out-outline"></ion-icon>
+        </ion-button>
+      </ng-container>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="events-header">
+    <h1 class="header-title">Sankeertanotsav 2026 Live</h1>
+    <p class="header-subtitle">Experience the finest Indian classical music performances</p>
+  </div>
+
+  <!-- Concert Type Tabs -->
+  <div class="tabs-container">
+    <ion-segment [(ngModel)]="selectedTab" mode="ios">
+      <ion-segment-button value="paid">
+        <ion-label>Paid</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="free">
+        <ion-label>Free Main</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="free-short">
+        <ion-label>Free Short</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </div>
+
+  <!-- Season Ticket Card (only for paid tab) -->
+  <div class="season-ticket-wrapper" *ngIf="selectedTab === 'paid' && !isLoading && seasonTicketPrice && !hasSeasonTicket">
+    <div class="season-ticket-card">
+      <div class="ticket-icon-section">
+        <div class="ticket-icon-wrapper">
+          <ion-icon name="ticket-outline"></ion-icon>
+        </div>
+        <div class="ticket-decorations">
+          <ion-icon name="musical-notes-outline" class="deco-icon deco-1"></ion-icon>
+          <ion-icon name="star-outline" class="deco-icon deco-2"></ion-icon>
+        </div>
+      </div>
+      <div class="ticket-content">
+        <h3 class="ticket-title">Season Ticket</h3>
+        <p class="ticket-desc">Unlock all {{ seasonTicketPrice.eventCount }} premium concerts with a single purchase</p>
+        <div class="ticket-features">
+          <div class="feature"><ion-icon name="checkmark-circle"></ion-icon> Access to all paid events</div>
+          <div class="feature"><ion-icon name="checkmark-circle"></ion-icon> Watch live & recordings</div>
+          <div class="feature"><ion-icon name="checkmark-circle"></ion-icon> Best value for music lovers</div>
+        </div>
+      </div>
+      <div class="ticket-pricing">
+        <div class="price-block">
+          <span class="original-price">₹{{ seasonTicketPrice.originalPaise / 100 }}</span>
+          <span class="discounted-price">₹{{ seasonTicketPrice.discountedPaise / 100 }}</span>
+        </div>
+        <span class="discount-badge">{{ seasonTicketPrice.discountPercent }}% OFF</span>
+        <ion-button expand="block" color="success" (click)="buySeasonTicket()" [disabled]="isProcessingSeasonPayment">
+          <ion-spinner *ngIf="isProcessingSeasonPayment" name="crescent"></ion-spinner>
+          <span *ngIf="!isProcessingSeasonPayment"><ion-icon name="cart-outline" style="margin-right: 6px;"></ion-icon> Buy Season Ticket</span>
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <div class="season-ticket-banner" *ngIf="selectedTab === 'paid' && hasSeasonTicket">
+    <ion-icon name="checkmark-circle"></ion-icon>
+    <span class="banner-text">
+      <strong>Season Ticket Active</strong> — Access to {{ seasonTicketConcertCount }} premium concert{{ seasonTicketConcertCount !== 1 ? 's' : '' }}
+    </span>
+  </div>
+
+  <div *ngIf="isLoading" class="empty-state">Loading concerts...</div>
+  <div *ngIf="!isLoading && errorMessage" class="error">{{ errorMessage }}</div>
+
+  <div *ngIf="!isLoading && !errorMessage && !upcomingEvents.length && !pastEvents.length" class="empty-state">
+    <div class="empty-icon"><ion-icon name="musical-notes-outline"></ion-icon></div>
+    <p>No concerts at the moment</p>
+  </div>
+
+  <!-- Upcoming Events Section -->
+  <div *ngIf="!isLoading && !errorMessage && upcomingEvents.length" class="events-section">
+    <h2 class="section-title">Upcoming Events</h2>
+    <div class="events-grid">
+      <div
+        class="event-card"
+        *ngFor="let e of upcomingEvents"
+        [routerLink]="['/events', e.id]"
+      >
+        <div class="card-poster" *ngIf="e.poster_url">
+          <img [src]="e.poster_url" [alt]="e.title">
+          <div class="admin-actions" *ngIf="isAdmin">
+            <ion-button class="edit-btn" size="small" fill="solid" color="primary" [routerLink]="['/admin/edit-event', e.id]" (click)="$event.stopPropagation()">
+              <ion-icon name="create-outline"></ion-icon>
+            </ion-button>
+            <ion-button class="delete-btn" size="small" fill="solid" color="danger" (click)="confirmDeleteEvent(e, $event)">
+              <ion-icon name="trash-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+        <div class="card-accent" *ngIf="!e.poster_url"></div>
+        <div class="card-body">
+          <div class="admin-actions no-poster" *ngIf="isAdmin && !e.poster_url">
+            <ion-button class="edit-btn" size="small" fill="solid" color="primary" [routerLink]="['/admin/edit-event', e.id]" (click)="$event.stopPropagation()">
+              <ion-icon name="create-outline"></ion-icon>
+            </ion-button>
+            <ion-button class="delete-btn" size="small" fill="solid" color="danger" (click)="confirmDeleteEvent(e, $event)">
+              <ion-icon name="trash-outline"></ion-icon>
+            </ion-button>
+          </div>
+          <h3 class="event-title">{{ e.title }}</h3>
+          <div class="event-date">
+            <ion-icon name="calendar-outline"></ion-icon>
+            {{ e.starts_at | eventTime:'full' }}
+          </div>
+          <p class="event-desc" *ngIf="e.description">{{ e.description }}</p>
+          <div class="card-footer">
+            <!-- Paid event actions -->
+            <ng-container *ngIf="selectedTab === 'paid'">
+              <span class="event-price">₹{{ (e.price_paise || 50000) / 100 }}</span>
+              <!-- Deferred Live badge for recording-only events -->
+              <span class="deferred-live-badge" *ngIf="e.recording_only">Deferred Live</span>
+              <!-- Buy Ticket: Show for logged out users OR logged in users without access -->
+              <ion-button
+                *ngIf="!hasAccessToEvent(e)"
+                size="small"
+                color="success"
+                (click)="buyEventTicket(e, $event)"
+                [disabled]="getTicketStatus(e.id).isProcessing"
+              >
+                <ion-spinner *ngIf="getTicketStatus(e.id).isProcessing" name="crescent"></ion-spinner>
+                <span *ngIf="!getTicketStatus(e.id).isProcessing"><ion-icon name="ticket-outline" style="margin-right: 4px;"></ion-icon> Buy Ticket</span>
+              </ion-button>
+              <!-- Watch Live: Only for logged in users with access AND event is live AND NOT recording-only -->
+              <ion-button
+                *ngIf="isLoggedIn && hasAccessToEvent(e) && isEventLive(e) && !e.recording_only"
+                size="small"
+                color="danger"
+                [routerLink]="['/watch', e.id]"
+                (click)="$event.stopPropagation()"
+              >
+                <ion-icon name="play-circle-outline" style="margin-right: 4px;"></ion-icon> Watch Live
+              </ion-button>
+            </ng-container>
+            <!-- Free event actions -->
+            <ng-container *ngIf="selectedTab === 'free' || selectedTab === 'free-short'">
+              <span class="free-badge">Free</span>
+              <!-- Watch: Only for logged in users when event is in time window -->
+              <ion-button
+                *ngIf="isLoggedIn && isEventInTimeWindow(e)"
+                size="small"
+                color="primary"
+                [routerLink]="['/watch', e.id]"
+                (click)="$event.stopPropagation()"
+              >
+                <ion-icon name="play-circle-outline" style="margin-right: 4px;"></ion-icon> Watch
+              </ion-button>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Past Events Section -->
+  <div *ngIf="!isLoading && !errorMessage && pastEvents.length" class="events-section past-section">
+    <h2 class="section-title">Past Events</h2>
+    <div class="events-grid">
+      <div
+        class="event-card past-event"
+        *ngFor="let e of pastEvents"
+        [routerLink]="['/events', e.id]"
+      >
+        <div class="card-poster" *ngIf="e.poster_url">
+          <img [src]="e.poster_url" [alt]="e.title">
+          <div class="admin-actions" *ngIf="isAdmin">
+            <ion-button class="edit-btn" size="small" fill="solid" color="primary" [routerLink]="['/admin/edit-event', e.id]" (click)="$event.stopPropagation()">
+              <ion-icon name="create-outline"></ion-icon>
+            </ion-button>
+            <ion-button class="delete-btn" size="small" fill="solid" color="danger" (click)="confirmDeleteEvent(e, $event)">
+              <ion-icon name="trash-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+        <div class="card-accent" *ngIf="!e.poster_url"></div>
+        <div class="card-body">
+          <div class="admin-actions no-poster" *ngIf="isAdmin && !e.poster_url">
+            <ion-button class="edit-btn" size="small" fill="solid" color="primary" [routerLink]="['/admin/edit-event', e.id]" (click)="$event.stopPropagation()">
+              <ion-icon name="create-outline"></ion-icon>
+            </ion-button>
+            <ion-button class="delete-btn" size="small" fill="solid" color="danger" (click)="confirmDeleteEvent(e, $event)">
+              <ion-icon name="trash-outline"></ion-icon>
+            </ion-button>
+          </div>
+          <h3 class="event-title">{{ e.title }}</h3>
+          <div class="event-date">
+            <ion-icon name="calendar-outline"></ion-icon>
+            {{ e.starts_at | eventTime:'full' }}
+          </div>
+          <p class="event-desc" *ngIf="e.description">{{ e.description }}</p>
+          <div class="card-footer">
+            <span class="event-price" *ngIf="selectedTab === 'paid'">₹{{ (e.price_paise || 50000) / 100 }}</span>
+            <!-- Deferred Live badge for recording-only events -->
+            <span class="deferred-live-badge" *ngIf="selectedTab === 'paid' && e.recording_only">Deferred Live</span>
+            <span class="free-badge" *ngIf="selectedTab === 'free' || selectedTab === 'free-short'">Free</span>
+            <!-- Paid: Recording available with expiry info -->
+            <ng-container *ngIf="selectedTab === 'paid' && isRecordingAvailable(e)">
+              <div class="recording-info">
+                <span class="recording-expiry">
+                  <ion-icon name="time-outline"></ion-icon>
+                  Recording expires: {{ getRecordingTimeRemaining(e) }}
+                </span>
+                <ion-button
+                  *ngIf="isLoggedIn && hasAccessToEvent(e)"
+                  size="small"
+                  color="tertiary"
+                  [routerLink]="['/watch', e.id]"
+                  [queryParams]="{ mode: 'recording' }"
+                  (click)="$event.stopPropagation()"
+                >
+                  <ion-icon name="videocam-outline" style="margin-right: 4px;"></ion-icon> Watch Recording
+                </ion-button>
+              </div>
+            </ng-container>
+            <!-- Paid: Recording expired -->
+            <span class="expired-badge" *ngIf="selectedTab === 'paid' && isRecordingExpired(e)">Recording Expired</span>
+            
+            <!-- Free/Free-Short: YouTube video always available -->
+            <ng-container *ngIf="selectedTab === 'free' || selectedTab === 'free-short'">
+              <ion-button
+                *ngIf="isLoggedIn"
+                size="small"
+                color="primary"
+                [routerLink]="['/watch', e.id]"
+                (click)="$event.stopPropagation()"
+              >
+                <ion-icon name="play-circle-outline" style="margin-right: 4px;"></ion-icon> Watch Video
+              </ion-button>
+              <span class="past-badge" *ngIf="!isLoggedIn">Login to Watch</span>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-footer></app-footer>
+</ion-content>

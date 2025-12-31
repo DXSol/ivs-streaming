@@ -1,0 +1,121 @@
+.terms-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.main-title {
+  text-align: center;
+  color: var(--ion-color-primary);
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.subtitle {
+  text-align: center;
+  color: var(--ion-color-medium);
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.last-updated {
+  text-align: center;
+  color: var(--ion-color-medium);
+  font-size: 0.85rem;
+  margin-bottom: 24px;
+}
+
+.intro {
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--ion-color-light);
+  border-radius: 8px;
+  border-left: 4px solid var(--ion-color-primary);
+}
+
+.terms-section {
+  margin-bottom: 24px;
+
+  h3 {
+    color: var(--ion-color-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--ion-color-light-shade);
+  }
+
+  h4 {
+    color: var(--ion-color-dark);
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 16px 0 8px 0;
+  }
+
+  p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--ion-color-dark);
+    margin-bottom: 8px;
+  }
+
+  ul {
+    margin: 8px 0 16px 0;
+    padding-left: 24px;
+
+    li {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--ion-color-dark);
+      margin-bottom: 4px;
+    }
+  }
+
+  .important {
+    color: var(--ion-color-danger);
+    font-size: 1rem;
+  }
+}
+
+.highlight-section {
+  background: linear-gradient(135deg, rgba(139, 21, 56, 0.03) 0%, rgba(139, 21, 56, 0.08) 100%);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 21, 56, 0.15);
+}
+
+.agreement-note {
+  margin-top: 32px;
+  padding: 20px;
+  background: var(--ion-color-primary);
+  color: white;
+  border-radius: 8px;
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+}
+
+ion-toolbar {
+  --background: var(--ion-color-primary);
+  --color: white;
+
+  ion-title {
+    font-weight: 600;
+  }
+}
+
+.icon-btn {
+  --color: white;
+  
+  ion-icon {
+    font-size: 24px;
+  }
+}

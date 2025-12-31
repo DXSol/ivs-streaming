@@ -1,0 +1,78 @@
+// Modern Indian Classical Music Concert Theme
+// Contemporary design with warm, elegant colors
+
+:root {
+  // Primary: Rich Burgundy (modern take on maroon)
+  --ion-color-primary: #9D174D;
+  --ion-color-primary-rgb: 157, 23, 77;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #8a1444;
+  --ion-color-primary-tint: #a72e5f;
+
+  // Secondary: Warm Amber (refined gold)
+  --ion-color-secondary: #F59E0B;
+  --ion-color-secondary-rgb: 245, 158, 11;
+  --ion-color-secondary-contrast: #1a1a1a;
+  --ion-color-secondary-contrast-rgb: 26, 26, 26;
+  --ion-color-secondary-shade: #d88b0a;
+  --ion-color-secondary-tint: #f6a823;
+
+  // Tertiary: Deep Violet (modern purple)
+  --ion-color-tertiary: #7C3AED;
+  --ion-color-tertiary-rgb: 124, 58, 237;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast-rgb: 255, 255, 255;
+  --ion-color-tertiary-shade: #6d33d1;
+  --ion-color-tertiary-tint: #894def;
+
+  // Modern success/danger/warning
+  --ion-color-success: #059669;
+  --ion-color-success-rgb: 5, 150, 105;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-shade: #047857;
+  --ion-color-success-tint: #10b981;
+
+  --ion-color-danger: #DC2626;
+  --ion-color-danger-rgb: 220, 38, 38;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-shade: #b91c1c;
+  --ion-color-danger-tint: #ef4444;
+
+  --ion-color-warning: #F59E0B;
+  --ion-color-warning-rgb: 245, 158, 11;
+  --ion-color-warning-contrast: #1a1a1a;
+  --ion-color-warning-shade: #d97706;
+  --ion-color-warning-tint: #fbbf24;
+
+  // Modern theme variables
+  --theme-bg-gradient: linear-gradient(180deg, #FEFBF6 0%, #FEF7ED 50%, #FDF4E8 100%);
+  --theme-card-bg: #ffffff;
+  --theme-card-border: rgba(0, 0, 0, 0.06);
+  --theme-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --theme-card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.08);
+  --theme-text-primary: #1F2937;
+  --theme-text-secondary: #4B5563;
+  --theme-text-muted: #9CA3AF;
+  --theme-accent-gold: #F59E0B;
+  --theme-accent-maroon: #9D174D;
+  --theme-divider: rgba(0, 0, 0, 0.08);
+
+  // Modern border radius
+  --app-radius: 12px;
+  --app-radius-sm: 8px;
+  --app-radius-lg: 20px;
+  --app-radius-xl: 24px;
+
+  // Typography - Modern fonts
+  --font-heading: 'DM Serif Display', 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  
+  // Spacing scale
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+}

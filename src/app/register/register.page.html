@@ -1,0 +1,131 @@
+<ion-content [fullscreen]="true">
+  <div class="register-container">
+    <div class="brand">
+      <img src="assets/sampradaya-logo.png" alt="Sampradaya Logo" class="brand-logo">
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Create Account</h2>
+        <p class="card-subtitle">Join us to experience live classical music concerts</p>
+      </div>
+
+      <div class="form-section">
+        <div class="section-label">
+          <ion-icon name="call-outline"></ion-icon>
+          Mobile Number <span class="required">*</span>
+        </div>
+        <p class="helper-text">Your mobile number will be used as your login username</p>
+        <div class="mobile-row">
+          <div class="country-code">
+            <ion-item>
+              <ion-select [(ngModel)]="countryCode" interface="popover" placeholder="Code">
+                <ion-select-option *ngFor="let c of countryCodes" [value]="c.code">
+                  {{ c.flag }} {{ c.code }}
+                </ion-select-option>
+              </ion-select>
+            </ion-item>
+          </div>
+          <div class="mobile-number">
+            <ion-item>
+              <ion-input [(ngModel)]="mobileNumber" type="tel" placeholder="Enter your mobile number" autocomplete="tel"></ion-input>
+            </ion-item>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="person-outline"></ion-icon>
+            Full Name
+          </label>
+          <ion-item>
+            <ion-input [(ngModel)]="name" type="text" placeholder="Enter your name" autocomplete="name"></ion-input>
+          </ion-item>
+        </div>
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="mail-outline"></ion-icon>
+            Email <span class="required">*</span>
+          </label>
+          <ion-item>
+            <ion-input [(ngModel)]="email" type="email" placeholder="Enter your email" autocomplete="email" required></ion-input>
+          </ion-item>
+          <p class="email-note">Email is required for password recovery</p>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="lock-closed-outline"></ion-icon>
+            Password
+          </label>
+          <ion-item>
+            <ion-input [(ngModel)]="password" type="password" placeholder="Create a password" autocomplete="new-password"></ion-input>
+          </ion-item>
+        </div>
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="shield-checkmark-outline"></ion-icon>
+            Confirm Password
+          </label>
+          <ion-item>
+            <ion-input [(ngModel)]="confirmPassword" type="password" placeholder="Confirm your password" autocomplete="new-password"></ion-input>
+          </ion-item>
+        </div>
+      </div>
+
+      <div class="form-group full-width">
+        <label class="field-label">
+          <ion-icon name="location-outline"></ion-icon>
+          Address <span class="optional">(optional)</span>
+        </label>
+        <ion-item>
+          <ion-textarea [(ngModel)]="address" rows="3" placeholder="Enter your address" autocomplete="street-address"></ion-textarea>
+        </ion-item>
+      </div>
+
+      <div class="terms-checkbox">
+        <ion-checkbox [(ngModel)]="acceptedTerms" (ionChange)="onTermsCheckboxChange($event)" labelPlacement="end">
+          I agree to the <a routerLink="/terms" (click)="$event.stopPropagation()">Terms & Conditions</a>
+        </ion-checkbox>
+      </div>
+
+      <div *ngIf="errorMessage" class="error-message">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        {{ errorMessage }}
+      </div>
+
+      <div class="actions">
+        <ion-button expand="block" (click)="onRegister()" [disabled]="isLoading" class="primary-btn">
+          <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
+          <span *ngIf="!isLoading">Create Account</span>
+        </ion-button>
+      </div>
+
+      <div class="divider">
+        <span>Already have an account?</span>
+      </div>
+
+      <ion-button expand="block" fill="outline" routerLink="/login" class="secondary-btn">
+        Sign In
+      </ion-button>
+
+      <div class="browse-events-section">
+        <a routerLink="/events" class="browse-events-link">
+          <ion-icon name="home-outline"></ion-icon>
+          Browse Events
+        </a>
+        <span class="separator">|</span>
+        <a (click)="openContactInfo()" class="contact-link">
+          <ion-icon name="call-outline"></ion-icon>
+          Contact Us
+        </a>
+      </div>
+    </div>
+
+    <app-footer></app-footer>
+  </div>
+</ion-content>

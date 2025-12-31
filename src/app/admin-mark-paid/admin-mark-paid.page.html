@@ -1,0 +1,130 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/events"></ion-back-button>
+    </ion-buttons>
+    <ion-title class="heading">Subscribers</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="admin-container">
+    <div class="admin-header">
+      <h1 class="header-title">Subscribers</h1>
+      <p class="header-subtitle">Manage subscriber tickets and payments</p>
+    </div>
+
+    <div class="topbar">
+      <ion-searchbar [(ngModel)]="search" (ionInput)="onSearchChange()" placeholder="Search by user or event..."></ion-searchbar>
+    </div>
+
+    <div *ngIf="isLoading" class="loading-state">Loading subscriptions...</div>
+    <div *ngIf="!isLoading && errorMessage" class="error">{{ errorMessage }}</div>
+
+    <div *ngIf="!isLoading && !errorMessage">
+      <div *ngIf="!groupedByUser.length" class="empty-state">
+        <div class="empty-icon">🎫</div>
+        <p>No subscriptions found</p>
+      </div>
+
+      <div *ngFor="let g of groupedByUser" class="user-group">
+        <div class="user-header" (click)="toggleExpand(g.user_id)">
+          <div class="user-avatar">{{ (g.user_name || g.user_email || 'U').slice(0,1).toUpperCase() }}</div>
+          <div class="user-info">
+            <div class="user-name">{{ g.user_name || 'No Name' }}</div>
+            <div class="user-email">{{ g.user_email }}</div>
+            <div class="user-details">
+              <span *ngIf="g.user_mobile">📱 {{ g.user_mobile }}</span>
+              <span *ngIf="g.user_country">🌍 {{ g.user_country }}</span>
+              <span class="total-paid">💰 ₹{{ g.total_paid_cents / 100 }}</span>
+            </div>
+          </div>
+          <div class="user-actions">
+            <ion-button fill="clear" size="small" (click)="openEditModal(g, $event)">
+              <ion-icon name="create-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" size="small" color="danger" (click)="confirmDeleteUser(g, $event)">
+              <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+          <ion-icon [name]="isExpanded(g.user_id) ? 'chevron-up-outline' : 'chevron-down-outline'" class="expand-icon"></ion-icon>
+        </div>
+
+        <ion-list class="subscription-list" *ngIf="isExpanded(g.user_id)">
+          <ion-item *ngFor="let row of g.items">
+            <ion-label>
+              <div class="event-title">
+                {{ row.event_title }}
+                <span class="status-badge" 
+                  [class.paid]="row.ticket_status === 'paid'" 
+                  [class.pending]="row.ticket_status === 'pending'"
+                  [class.none]="row.ticket_status === 'none'">
+                  {{ row.ticket_status === 'paid' ? 'Paid' : (row.ticket_status === 'pending' ? 'Pending' : 'No Ticket') }}
+                </span>
+              </div>
+              <div class="meta" *ngIf="row.subscribed_at">📅 Subscribed: {{ row.subscribed_at | date:'mediumDate' }}</div>
+            </ion-label>
+
+            <div slot="end" class="item-actions">
+              <ion-checkbox
+                [checked]="row.ticket_status === 'paid'"
+                (ionChange)="togglePaid(row, $event.detail.checked)"
+              ></ion-checkbox>
+              <ion-button fill="clear" size="small" color="danger" (click)="confirmDeleteSubscription(row, $event)">
+                <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+              </ion-button>
+            </div>
+          </ion-item>
+        </ion-list>
+      </div>
+    </div>
+
+    <app-footer></app-footer>
+  </div>
+
+  <ion-modal [isOpen]="isEditModalOpen" (didDismiss)="closeEditModal()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Edit User</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeEditModal()">
+              <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <div class="edit-form">
+          <div class="form-group">
+            <label>Name</label>
+            <ion-item>
+              <ion-input [(ngModel)]="editName" type="text" placeholder="Enter name"></ion-input>
+            </ion-item>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <ion-item>
+              <ion-input [(ngModel)]="editEmail" type="email" placeholder="Enter email"></ion-input>
+            </ion-item>
+          </div>
+          <div class="form-group">
+            <label>Mobile</label>
+            <ion-item>
+              <ion-input [(ngModel)]="editMobile" type="tel" placeholder="Enter mobile"></ion-input>
+            </ion-item>
+          </div>
+          <div class="form-group">
+            <label>Country</label>
+            <ion-item>
+              <ion-input [(ngModel)]="editCountry" type="text" placeholder="Enter country"></ion-input>
+            </ion-item>
+          </div>
+          <ion-button expand="block" (click)="saveUser()" [disabled]="isSavingUser">
+            {{ isSavingUser ? 'Saving...' : 'Save Changes' }}
+          </ion-button>
+        </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+</ion-content>

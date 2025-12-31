@@ -1,0 +1,130 @@
+<ion-header class="no-print">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/admin/dashboard"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Invoice Statement</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="downloadCsv()" color="primary">
+        <ion-icon name="download-outline" slot="start"></ion-icon>
+        Download
+      </ion-button>
+      <ion-button (click)="printStatement()">
+        <ion-icon name="print-outline" slot="start"></ion-icon>
+        Print
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="statement-container">
+    <!-- Filters Section -->
+    <div class="filters-section no-print">
+      <div class="filter-row">
+        <div class="filter-item">
+          <label>From Date</label>
+          <input type="date" [(ngModel)]="startDate" class="date-input" />
+        </div>
+        <div class="filter-item">
+          <label>To Date</label>
+          <input type="date" [(ngModel)]="endDate" class="date-input" />
+        </div>
+        <div class="filter-item">
+          <label>Event</label>
+          <select [(ngModel)]="selectedEventId" class="event-select">
+            <option value="">All Events</option>
+            <option *ngFor="let event of events" [value]="event.id">{{ event.title }}</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <ion-button (click)="applyFilters()" color="primary" size="small">
+            <ion-icon name="filter-outline" slot="start"></ion-icon>
+            Apply
+          </ion-button>
+          <ion-button (click)="clearFilters()" color="medium" size="small" fill="outline">
+            <ion-icon name="refresh-outline" slot="start"></ion-icon>
+            Clear
+          </ion-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-state">
+      <ion-spinner name="crescent"></ion-spinner>
+      <span>Loading invoices...</span>
+    </div>
+
+    <!-- Statement Content -->
+    <div *ngIf="!isLoading" class="statement-content">
+      <!-- Statement Header (for print) -->
+      <div class="print-header print-only">
+        <h1>Invoice Statement</h1>
+        <p>Generated on: {{ currentDate }}</p>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="summary-cards">
+        <div class="summary-card">
+          <span class="card-label">Total Invoices</span>
+          <span class="card-value">{{ totals.count }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="card-label">Subtotal</span>
+          <span class="card-value">₹{{ totals.subtotal_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="card-label">Total GST</span>
+          <span class="card-value">₹{{ totals.gst_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-card highlight">
+          <span class="card-label">Net Amount</span>
+          <span class="card-value">₹{{ totals.total_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <!-- Invoice Table -->
+      <div class="table-container">
+        <table class="invoice-table">
+          <thead>
+            <tr>
+              <th>Inv No</th>
+              <th>Date</th>
+              <th>Name</th>
+              <th>Event Name</th>
+              <th class="text-right">Amount (₹)</th>
+              <th class="text-right">GST (₹)</th>
+              <th class="text-right">Net Amount (₹)</th>
+              <th>Payment Ref</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let invoice of invoices">
+              <td class="invoice-number">{{ invoice.invoice_number }}</td>
+              <td>{{ formatDate(invoice.invoice_date) }}</td>
+              <td>{{ invoice.customer_name || '-' }}</td>
+              <td>{{ getEventName(invoice) }}</td>
+              <td class="text-right">{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</td>
+              <td class="text-right">{{ getGst(invoice) / 100 | number:'1.2-2' }}</td>
+              <td class="text-right">{{ invoice.total_paise / 100 | number:'1.2-2' }}</td>
+              <td class="payment-ref">{{ invoice.razorpay_payment_id || '-' }}</td>
+            </tr>
+            <tr *ngIf="invoices.length === 0">
+              <td colspan="8" class="no-data">No invoices found</td>
+            </tr>
+          </tbody>
+          <tfoot *ngIf="invoices.length > 0">
+            <tr class="totals-row">
+              <td colspan="4"><strong>Total</strong></td>
+              <td class="text-right"><strong>₹{{ totals.subtotal_paise / 100 | number:'1.2-2' }}</strong></td>
+              <td class="text-right"><strong>₹{{ totals.gst_paise / 100 | number:'1.2-2' }}</strong></td>
+              <td class="text-right"><strong>₹{{ totals.total_paise / 100 | number:'1.2-2' }}</strong></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</ion-content>

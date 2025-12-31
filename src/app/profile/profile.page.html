@@ -1,0 +1,207 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/events"></ion-back-button>
+    </ion-buttons>
+    <ion-title>My Profile</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="profile-container">
+    <div *ngIf="isLoading" class="loading-state">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading profile...</p>
+    </div>
+
+    <div *ngIf="!isLoading" class="profile-content">
+      <div class="profile-header">
+        <div class="avatar-large">
+          {{ (name || 'U').slice(0,1).toUpperCase() }}
+        </div>
+        <h1 class="profile-name">{{ name || 'User' }}</h1>
+        <p class="profile-mobile">{{ mobile }}</p>
+        <div class="payment-summary" *ngIf="totalPaidRupees > 0">
+          <span class="payment-label">Total Paid</span>
+          <span class="payment-amount">₹{{ totalPaidRupees }}</span>
+        </div>
+      </div>
+
+      <div class="profile-card">
+        <h2 class="card-title">Edit Profile</h2>
+
+        <div *ngIf="successMessage" class="message success">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          {{ successMessage }}
+        </div>
+
+        <div *ngIf="errorMessage" class="message error">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ errorMessage }}
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="person-outline"></ion-icon>
+            Full Name
+          </label>
+          <ion-item>
+            <ion-input [(ngModel)]="name" type="text" placeholder="Enter your name"></ion-input>
+          </ion-item>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="mail-outline"></ion-icon>
+            Email <span class="optional">(optional)</span>
+          </label>
+          <ion-item>
+            <ion-input [(ngModel)]="email" type="email" placeholder="Enter your email"></ion-input>
+          </ion-item>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="call-outline"></ion-icon>
+            Mobile Number
+          </label>
+          <ion-item class="readonly">
+            <ion-input [value]="mobile" type="tel" readonly></ion-input>
+          </ion-item>
+          <p class="field-hint">Mobile number cannot be changed as it is your login username</p>
+        </div>
+
+        <div class="form-group" *ngIf="country">
+          <label class="field-label">
+            <ion-icon name="globe-outline"></ion-icon>
+            Country
+          </label>
+          <ion-item class="readonly">
+            <ion-input [value]="country" type="text" readonly></ion-input>
+          </ion-item>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">
+            <ion-icon name="location-outline"></ion-icon>
+            Address <span class="optional">(optional)</span>
+          </label>
+          <ion-item>
+            <ion-textarea [(ngModel)]="address" rows="3" placeholder="Enter your address"></ion-textarea>
+          </ion-item>
+        </div>
+
+        <div class="form-actions">
+          <ion-button expand="block" (click)="saveProfile()" [disabled]="isSaving" class="save-btn">
+            <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
+            <span *ngIf="!isSaving">
+              <ion-icon name="save-outline" slot="start"></ion-icon>
+              Save Changes
+            </span>
+          </ion-button>
+        </div>
+      </div>
+
+      <div class="profile-card collapsible">
+        <div class="card-header-toggle" (click)="showPasswordSection = !showPasswordSection">
+          <h2 class="card-title">
+            <ion-icon name="key-outline"></ion-icon>
+            Change Password
+          </h2>
+          <ion-icon [name]="showPasswordSection ? 'chevron-up-outline' : 'chevron-down-outline'" class="toggle-icon"></ion-icon>
+        </div>
+
+        <div class="collapsible-content" *ngIf="showPasswordSection">
+          <div *ngIf="passwordSuccessMessage" class="message success">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            {{ passwordSuccessMessage }}
+          </div>
+
+          <div *ngIf="passwordErrorMessage" class="message error">
+            <ion-icon name="alert-circle-outline"></ion-icon>
+            {{ passwordErrorMessage }}
+          </div>
+
+          <div class="form-group">
+            <label class="field-label">
+              <ion-icon name="lock-closed-outline"></ion-icon>
+              Current Password
+            </label>
+            <ion-item>
+              <ion-input [(ngModel)]="currentPassword" type="password" placeholder="Enter current password"></ion-input>
+            </ion-item>
+          </div>
+
+          <div class="form-group">
+            <label class="field-label">
+              <ion-icon name="lock-closed-outline"></ion-icon>
+              New Password
+            </label>
+            <ion-item>
+              <ion-input [(ngModel)]="newPassword" type="password" placeholder="Enter new password (min 6 characters)"></ion-input>
+            </ion-item>
+          </div>
+
+          <div class="form-group">
+            <label class="field-label">
+              <ion-icon name="lock-closed-outline"></ion-icon>
+              Confirm New Password
+            </label>
+            <ion-item>
+              <ion-input [(ngModel)]="confirmNewPassword" type="password" placeholder="Confirm new password"></ion-input>
+            </ion-item>
+          </div>
+
+          <div class="form-actions">
+            <ion-button expand="block" (click)="changePassword()" [disabled]="isChangingPassword" class="save-btn">
+              <ion-spinner *ngIf="isChangingPassword" name="crescent"></ion-spinner>
+              <span *ngIf="!isChangingPassword">
+                <ion-icon name="key-outline" slot="start"></ion-icon>
+                Change Password
+              </span>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoices Section -->
+    <div class="section-card invoices-section">
+      <div class="section-header" (click)="toggleInvoicesSection()">
+        <h3>
+          <ion-icon name="receipt-outline"></ion-icon>
+          My Invoices
+        </h3>
+        <ion-icon [name]="showInvoicesSection ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+      </div>
+
+      <div class="section-content" *ngIf="showInvoicesSection">
+        <div *ngIf="isLoadingInvoices" class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>Loading invoices...</span>
+        </div>
+
+        <div *ngIf="!isLoadingInvoices && invoices.length === 0" class="empty-state">
+          <ion-icon name="receipt-outline"></ion-icon>
+          <p>No invoices yet</p>
+        </div>
+
+        <div *ngIf="!isLoadingInvoices && invoices.length > 0" class="invoices-list">
+          <div class="invoice-item" *ngFor="let invoice of invoices" (click)="viewInvoice(invoice)">
+            <div class="invoice-info">
+              <span class="invoice-number">{{ invoice.invoice_number }}</span>
+              <span class="invoice-type">{{ getInvoiceTypeLabel(invoice.invoice_type) }}</span>
+              <span class="invoice-event" *ngIf="invoice.event_title">{{ invoice.event_title }}</span>
+            </div>
+            <div class="invoice-meta">
+              <span class="invoice-amount">₹{{ invoice.total_paise / 100 }}</span>
+              <span class="invoice-date">{{ formatDate(invoice.invoice_date) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-footer></app-footer>
+  </div>
+</ion-content>

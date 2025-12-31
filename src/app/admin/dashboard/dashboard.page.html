@@ -1,0 +1,85 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/events"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Event Dashboard</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <h1>Events Dashboard</h1>
+      <ion-button size="small" routerLink="/admin/create-event">+ New Event</ion-button>
+    </div>
+
+    <div *ngIf="isLoading" class="loading-state">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading dashboard...</p>
+    </div>
+
+    <div *ngIf="!isLoading && errorMessage" class="error-state">
+      {{ errorMessage }}
+    </div>
+
+    <div *ngIf="!isLoading && !errorMessage && !events.length" class="empty-state">
+      <p>No events found. Create your first event!</p>
+      <ion-button routerLink="/admin/create-event">Create Event</ion-button>
+    </div>
+
+    <div *ngIf="!isLoading && !errorMessage && events.length" class="events-grid">
+      <ion-card *ngFor="let event of events" class="event-card">
+        <div class="card-header">
+          <ion-badge [color]="getStatusColor(getEventStatus(event))">
+            {{ getEventStatus(event) | uppercase }}
+          </ion-badge>
+          <span *ngIf="event.is_live" class="live-viewers">
+            👁 {{ event.current_viewers }} watching
+          </span>
+        </div>
+
+        <ion-card-header>
+          <ion-card-title>{{ event.title }}</ion-card-title>
+        </ion-card-header>
+
+        <ion-card-content>
+          <div class="event-time">
+            <span>📅 {{ event.starts_at | date:'medium' }}</span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-value">{{ event.paid_tickets }}</span>
+              <span class="stat-label">Paid</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ event.pending_tickets }}</span>
+              <span class="stat-label">Pending</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ event.total_comments }}</span>
+              <span class="stat-label">Comments</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ event.peak_viewers || 0 }}</span>
+              <span class="stat-label">Peak Views</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <ion-button fill="outline" size="small" [routerLink]="['/events', event.id]">
+              View Event
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <app-footer></app-footer>
+  </div>
+</ion-content>

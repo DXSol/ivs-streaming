@@ -1,0 +1,30 @@
+.app-footer {
+  padding: 24px 16px;
+  background: transparent;
+  border-top: 1px solid var(--theme-divider);
+  margin-top: auto;
+}
+
+.footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.powered-by {
+  font-size: 0.75rem;
+  color: var(--theme-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.dx-logo {
+  height: 40px;
+  width: auto;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+}
