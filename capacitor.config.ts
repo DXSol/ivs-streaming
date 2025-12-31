@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.ionic.starter',
-  appName: 'ivs-live-streaming',
+  appId: 'com.dxsoltech.sampradayaevents',
+  appName: 'Sampradaya Events',
   webDir: 'www'
 };
 
