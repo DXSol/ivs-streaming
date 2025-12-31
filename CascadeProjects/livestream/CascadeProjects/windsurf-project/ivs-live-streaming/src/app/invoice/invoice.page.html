@@ -1,0 +1,122 @@
+<ion-header class="no-print">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon name="arrow-back-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Tax Invoice</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="printInvoice()" color="primary">
+        <ion-icon name="print-outline" slot="start"></ion-icon>
+        Print
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="invoice-container">
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-state">
+      <ion-spinner name="crescent"></ion-spinner>
+      <span>Loading invoice...</span>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="!isLoading && errorMessage" class="error-state">
+      <p>{{ errorMessage }}</p>
+      <ion-button (click)="goBack()">Go Back</ion-button>
+    </div>
+
+    <!-- Invoice Content -->
+    <div *ngIf="!isLoading && invoice" class="invoice-content">
+      <!-- Invoice Header -->
+      <div class="invoice-header">
+        <h1>TAX INVOICE</h1>
+      </div>
+
+      <!-- Company Details -->
+      <div class="company-section">
+        <h2>{{ invoice.company_name }}</h2>
+        <p>{{ invoice.company_address }}</p>
+        <p *ngIf="invoice.company_phone">{{ invoice.company_phone }}</p>
+        <p><strong>GSTIN:</strong> {{ invoice.company_gstin }}</p>
+      </div>
+
+      <!-- Invoice Meta -->
+      <div class="invoice-meta-section">
+        <div class="meta-row">
+          <div class="meta-item">
+            <label>Invoice Number</label>
+            <span>{{ invoice.invoice_number }}</span>
+          </div>
+          <div class="meta-item">
+            <label>Invoice Date</label>
+            <span>{{ formatDate(invoice.invoice_date) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bill To -->
+      <div class="bill-to-section">
+        <h3>Bill To:</h3>
+        <p class="customer-name">{{ invoice.customer_name || 'Customer' }}</p>
+      </div>
+
+      <!-- Line Items Table -->
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th class="description-col">Description</th>
+            <th class="amount-col">Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              {{ getInvoiceTypeLabel(invoice.invoice_type) }}
+              <span *ngIf="invoice.event_title" class="event-name"> - {{ invoice.event_title }}</span>
+            </td>
+            <td class="amount-col">{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Tax Summary -->
+      <div class="tax-summary">
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span>₹{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-row" *ngIf="invoice.cgst_paise > 0">
+          <span>CGST (9%)</span>
+          <span>₹{{ invoice.cgst_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-row" *ngIf="invoice.sgst_paise > 0">
+          <span>SGST (9%)</span>
+          <span>₹{{ invoice.sgst_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-row" *ngIf="invoice.igst_paise > 0">
+          <span>IGST (18%)</span>
+          <span>₹{{ invoice.igst_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total</span>
+          <span>₹{{ invoice.total_paise / 100 | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <!-- Amount in Words -->
+      <div class="amount-words">
+        <strong>Amount in Words:</strong> {{ getAmountInWords() }}
+      </div>
+
+      <!-- Footer -->
+      <div class="invoice-footer">
+        <p>This is a computer-generated invoice and does not require a signature.</p>
+        <p class="thank-you">Thank you for your purchase!</p>
+      </div>
+    </div>
+  </div>
+</ion-content>

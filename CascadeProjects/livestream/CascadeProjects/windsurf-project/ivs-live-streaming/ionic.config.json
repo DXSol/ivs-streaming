@@ -1,0 +1,7 @@
+{
+  "name": "ivs-live-streaming",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}

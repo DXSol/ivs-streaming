@@ -1,0 +1,243 @@
+// Invoice Statement Page Styles
+.statement-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.filters-section {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+  }
+
+  .filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 500;
+    }
+  }
+
+  .date-input,
+  .event-select {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9375rem;
+    min-width: 150px;
+    background: #fff;
+
+    &:focus {
+      outline: none;
+      border-color: var(--theme-accent-maroon, #9d174d);
+    }
+  }
+
+  .event-select {
+    min-width: 200px;
+  }
+
+  .filter-actions {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 16px;
+  color: #6b7280;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+
+  .summary-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    &.highlight {
+      background: var(--theme-accent-maroon, #9d174d);
+      border-color: var(--theme-accent-maroon, #9d174d);
+
+      .card-label,
+      .card-value {
+        color: #fff;
+      }
+    }
+
+    .card-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1f2937;
+    }
+  }
+}
+
+.table-container {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  th {
+    background: #f9fafb;
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  td {
+    font-size: 0.875rem;
+    color: #1f2937;
+  }
+
+  .text-right {
+    text-align: right;
+  }
+
+  .invoice-number {
+    font-family: monospace;
+    font-weight: 500;
+    color: var(--theme-accent-maroon, #9d174d);
+  }
+
+  .payment-ref {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #6b7280;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 40px;
+    color: #9ca3af;
+    font-style: italic;
+  }
+
+  .totals-row {
+    background: #f9fafb;
+    
+    td {
+      border-top: 2px solid var(--theme-accent-maroon, #9d174d);
+      font-weight: 600;
+    }
+  }
+}
+
+// Print Styles
+.print-only {
+  display: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .statement-container {
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .print-header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #000;
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.5rem;
+    }
+
+    p {
+      margin: 0;
+      color: #666;
+    }
+  }
+
+  .summary-cards {
+    .summary-card.highlight {
+      background: #f0f0f0;
+      border-color: #000;
+
+      .card-label,
+      .card-value {
+        color: #000;
+      }
+    }
+  }
+
+  .table-container {
+    border: none;
+  }
+
+  .invoice-table {
+    min-width: auto;
+
+    .invoice-number {
+      color: #000;
+    }
+
+    .totals-row td {
+      border-top-color: #000;
+    }
+  }
+}

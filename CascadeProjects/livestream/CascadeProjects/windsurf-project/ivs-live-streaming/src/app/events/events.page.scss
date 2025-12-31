@@ -1,0 +1,861 @@
+.toolbar-logo {
+  height: 48px;
+  width: auto;
+  margin-left: 12px;
+
+  @media (min-width: 768px) {
+    height: 56px;
+  }
+}
+
+// Toolbar icon buttons (profile, logout, contact)
+.toolbar-icon-btn {
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --color: var(--theme-accent-maroon, #9d174d);
+  
+  ion-icon {
+    font-size: 28px;
+    color: var(--theme-accent-maroon, #9d174d) !important;
+  }
+
+  &:hover ion-icon {
+    color: var(--theme-gold, #d4a574) !important;
+  }
+}
+
+// Auth buttons (Login, Register)
+.auth-btn {
+  --border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  margin: 0 4px;
+  
+  &.login-btn {
+    --color: var(--theme-accent-maroon, #9d174d);
+    --padding-start: 16px;
+    --padding-end: 16px;
+    
+    &:hover {
+      --color: var(--theme-gold, #d4a574);
+    }
+  }
+  
+  &.register-btn {
+    --background: linear-gradient(135deg, var(--theme-accent-maroon, #9d174d) 0%, #7f1d4e 100%);
+    --background-hover: linear-gradient(135deg, #7f1d4e 0%, #5c1438 100%);
+    --color: #fff;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    --box-shadow: 0 2px 8px rgba(157, 23, 77, 0.3);
+    
+    &:hover {
+      --box-shadow: 0 4px 12px rgba(157, 23, 77, 0.4);
+    }
+  }
+}
+
+.tabs-container {
+  padding: 0 12px 20px;
+  max-width: 480px;
+  margin: 0 auto;
+
+  ion-segment {
+    --background: rgba(157, 23, 77, 0.08);
+    border-radius: 12px;
+    padding: 4px;
+  }
+
+  ion-segment-button {
+    --indicator-color: var(--theme-accent-maroon);
+    --indicator-box-shadow: 0 2px 8px rgba(157, 23, 77, 0.25);
+    --color: var(--theme-accent-maroon);
+    --color-checked: #fff;
+    --border-radius: 8px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    min-height: 44px;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    
+    @media (min-width: 480px) {
+      --padding-start: 20px;
+      --padding-end: 20px;
+      font-size: 0.875rem;
+    }
+  }
+}
+
+.free-badge {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.deferred-live-badge {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.events-header {
+  text-align: center;
+  padding: 32px 16px 20px;
+  max-width: 600px;
+  margin: 0 auto;
+
+  @media (min-width: 768px) {
+    padding: 48px 24px 32px;
+  }
+
+  .header-title {
+    font-family: var(--font-heading);
+    font-size: 1.75rem;
+    font-weight: 400;
+    color: var(--theme-accent-gold);
+    margin: 0 0 8px;
+    letter-spacing: -0.02em;
+
+    @media (min-width: 768px) {
+      font-size: 2.5rem;
+    }
+  }
+
+  .header-subtitle {
+    font-size: 0.9375rem;
+    color: var(--theme-text-secondary);
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+}
+
+.events-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+  padding: 0 16px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    padding: 0 24px 32px;
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (min-width: 1400px) {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 1400px;
+  }
+}
+
+.event-card {
+  background: var(--theme-card-bg);
+  border: 1px solid var(--theme-card-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--theme-card-shadow);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--theme-card-shadow-hover);
+    border-color: rgba(157, 23, 77, 0.15);
+
+    .card-poster img {
+      transform: scale(1.05);
+    }
+  }
+
+  .card-poster {
+    width: 100%;
+    height: 180px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .admin-actions {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+
+      ion-button {
+        --padding-start: 8px;
+        --padding-end: 8px;
+        --border-radius: 8px;
+        font-size: 12px;
+        backdrop-filter: blur(8px);
+      }
+
+      .edit-btn {
+        --background: rgba(255, 255, 255, 0.9);
+        --color: var(--theme-accent-maroon);
+      }
+
+      .delete-btn {
+        --background: rgba(255, 255, 255, 0.9);
+      }
+    }
+  }
+
+  .card-accent {
+    height: 3px;
+    background: linear-gradient(90deg, var(--theme-accent-maroon) 0%, var(--theme-accent-gold) 100%);
+  }
+
+  .card-body {
+    position: relative;
+    padding: 16px;
+
+    @media (min-width: 768px) {
+      padding: 20px;
+    }
+
+    .admin-actions.no-poster {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 4px;
+      z-index: 10;
+
+      ion-button {
+        --padding-start: 8px;
+        --padding-end: 8px;
+        --border-radius: 8px;
+        font-size: 12px;
+      }
+    }
+  }
+
+  .event-title {
+    font-family: var(--font-heading);
+    font-size: 1.125rem;
+    font-weight: 400;
+    color: var(--theme-text-primary);
+    margin: 0 0 8px;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+
+    @media (min-width: 768px) {
+      font-size: 1.25rem;
+    }
+  }
+
+  .event-date {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--theme-accent-maroon);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    ion-icon {
+      font-size: 14px;
+    }
+  }
+
+  .event-desc {
+    font-size: 0.875rem;
+    color: var(--theme-text-secondary);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-divider);
+    gap: 12px;
+
+    .event-price {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--theme-text-primary);
+      font-family: var(--font-body);
+    }
+
+    ion-button {
+      --padding-start: 14px;
+      --padding-end: 14px;
+      --border-radius: var(--app-radius-sm);
+      font-weight: 600;
+      font-size: 0.8125rem;
+      letter-spacing: 0.02em;
+      color: white !important;
+      --ion-color-contrast: white !important;
+      text-transform: none;
+    }
+
+    .ticket-owned {
+      font-size: 0.8125rem;
+      color: var(--ion-color-success);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--theme-text-muted);
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+}
+
+.error {
+  color: var(--ion-color-danger);
+  text-align: center;
+  padding: 24px;
+}
+
+.events-section {
+  margin-bottom: 32px;
+
+  .section-title {
+    font-family: var(--font-heading);
+    font-size: 1.375rem;
+    font-weight: 400;
+    color: var(--theme-text-primary);
+    margin: 0 auto 20px;
+    padding: 0 16px 12px;
+    border-bottom: 1px solid var(--theme-divider);
+    max-width: 1200px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    &::before {
+      content: '';
+      width: 4px;
+      height: 24px;
+      background: linear-gradient(180deg, var(--theme-accent-maroon) 0%, var(--theme-accent-gold) 100%);
+      border-radius: 2px;
+    }
+
+    @media (min-width: 768px) {
+      font-size: 1.5rem;
+      padding: 0 24px 12px;
+      margin-bottom: 24px;
+    }
+
+    @media (min-width: 1400px) {
+      max-width: 1400px;
+    }
+  }
+
+  &.past-section {
+    .section-title {
+      color: var(--theme-text-secondary);
+
+      &::before {
+        background: var(--theme-text-muted);
+      }
+    }
+  }
+}
+
+.past-event {
+  opacity: 0.85;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  .card-poster img {
+    filter: grayscale(20%) saturate(0.9);
+  }
+}
+
+.past-badge {
+  font-size: 0.75rem;
+  color: var(--theme-text-muted);
+  font-weight: 500;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 20px;
+  letter-spacing: 0.01em;
+}
+
+.expired-badge {
+  font-size: 0.75rem;
+  color: #dc2626;
+  font-weight: 500;
+  padding: 6px 12px;
+  background: rgba(220, 38, 38, 0.08);
+  border-radius: 20px;
+  letter-spacing: 0.01em;
+}
+
+.recording-info {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.recording-expiry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  color: #b45309;
+  font-weight: 500;
+  padding: 4px 8px;
+  background: rgba(180, 83, 9, 0.1);
+  border-radius: 10px;
+  white-space: nowrap;
+
+  ion-icon {
+    font-size: 12px;
+  }
+}
+
+.recording-info ion-button {
+  --padding-start: 10px;
+  --padding-end: 10px;
+  font-size: 0.75rem;
+  height: 28px;
+}
+
+// Season Ticket Section
+.season-ticket-wrapper {
+  padding: 0 16px 24px;
+  max-width: 800px;
+  margin: 0 auto;
+
+  @media (min-width: 768px) {
+    padding: 0 24px 32px;
+  }
+}
+
+.season-ticket-card {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 16px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);
+
+  // Compact mobile layout - stacked vertically for better readability
+  @media (max-width: 480px) {
+    padding: 20px;
+    gap: 16px;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    text-align: center;
+
+    .ticket-icon-section {
+      grid-row: 1 / 2;
+      justify-self: center;
+    }
+
+    .ticket-content {
+      grid-row: 2 / 3;
+    }
+
+    .ticket-pricing {
+      grid-column: 1 / -1;
+      grid-row: 3 / 4;
+    }
+  }
+
+  // Medium mobile layout
+  @media (min-width: 481px) and (max-width: 600px) {
+    padding: 16px;
+    gap: 12px;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+
+    .ticket-icon-section {
+      grid-row: 1 / 2;
+    }
+
+    .ticket-content {
+      grid-row: 1 / 2;
+    }
+
+    .ticket-pricing {
+      grid-column: 1 / -1;
+      grid-row: 2 / 3;
+    }
+  }
+
+  // Tablet layout
+  @media (min-width: 601px) and (max-width: 768px) {
+    grid-template-columns: auto 1fr auto;
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .ticket-icon-section {
+    position: relative;
+    width: 80px;
+    height: 80px;
+
+    @media (max-width: 480px) {
+      width: 64px;
+      height: 64px;
+    }
+
+    @media (min-width: 481px) and (max-width: 600px) {
+      width: 56px;
+      height: 56px;
+    }
+
+    .ticket-icon-wrapper {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+
+      @media (max-width: 480px) {
+        width: 64px;
+        height: 64px;
+      }
+
+      @media (min-width: 481px) and (max-width: 600px) {
+        width: 56px;
+        height: 56px;
+      }
+
+      ion-icon {
+        font-size: 36px;
+        color: white;
+
+        @media (max-width: 480px) {
+          font-size: 30px;
+        }
+
+        @media (min-width: 481px) and (max-width: 600px) {
+          font-size: 26px;
+        }
+      }
+    }
+
+    .ticket-decorations {
+      @media (max-width: 600px) {
+        display: none;
+      }
+
+      .deco-icon {
+        position: absolute;
+        color: #f59e0b;
+        opacity: 0.6;
+
+        &.deco-1 {
+          top: -8px;
+          right: -8px;
+          font-size: 20px;
+        }
+
+        &.deco-2 {
+          bottom: -4px;
+          left: -8px;
+          font-size: 16px;
+        }
+      }
+    }
+  }
+
+  .ticket-content {
+    @media (max-width: 480px) {
+      text-align: center;
+    }
+
+    @media (min-width: 481px) and (max-width: 600px) {
+      text-align: left;
+    }
+
+    .ticket-title {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      font-weight: 700;
+      color: #92400e;
+      margin: 0 0 8px;
+
+      @media (max-width: 480px) {
+        font-size: 20px;
+        margin: 0 0 8px;
+      }
+
+      @media (min-width: 481px) and (max-width: 600px) {
+        font-size: 18px;
+        margin: 0 0 4px;
+      }
+
+      @media (min-width: 768px) {
+        font-size: 26px;
+      }
+    }
+
+    .ticket-desc {
+      color: #78350f;
+      font-size: 14px;
+      margin: 0 0 12px;
+      line-height: 1.4;
+
+      @media (max-width: 480px) {
+        font-size: 14px;
+        margin: 0;
+        line-height: 1.4;
+      }
+
+      @media (min-width: 481px) and (max-width: 600px) {
+        font-size: 12px;
+        margin: 0 0 6px;
+        line-height: 1.3;
+      }
+    }
+
+    .ticket-features {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      @media (max-width: 600px) {
+        display: none;
+      }
+
+      .feature {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #78350f;
+
+        ion-icon {
+          color: #15803d;
+          font-size: 16px;
+        }
+      }
+    }
+  }
+
+  .ticket-pricing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    min-width: 160px;
+
+    @media (max-width: 480px) {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      min-width: unset;
+      width: 100%;
+      padding-top: 16px;
+      border-top: 1px dashed rgba(245, 158, 11, 0.4);
+    }
+
+    @media (min-width: 481px) and (max-width: 600px) {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      min-width: unset;
+      width: 100%;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(245, 158, 11, 0.4);
+    }
+
+    .price-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      @media (max-width: 480px) {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 10px;
+      }
+
+      @media (min-width: 481px) and (max-width: 600px) {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 8px;
+      }
+
+      .original-price {
+        text-decoration: line-through;
+        color: #92400e;
+        font-size: 14px;
+        opacity: 0.7;
+
+        @media (max-width: 480px) {
+          font-size: 14px;
+        }
+
+        @media (min-width: 481px) and (max-width: 600px) {
+          font-size: 12px;
+        }
+      }
+
+      .discounted-price {
+        font-size: 32px;
+        font-weight: 700;
+        color: #15803d;
+        line-height: 1;
+
+        @media (max-width: 480px) {
+          font-size: 28px;
+        }
+
+        @media (min-width: 481px) and (max-width: 600px) {
+          font-size: 24px;
+        }
+      }
+    }
+
+    .discount-badge {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+
+      @media (max-width: 480px) {
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+
+      @media (min-width: 481px) and (max-width: 600px) {
+        padding: 3px 8px;
+        font-size: 10px;
+      }
+    }
+
+    ion-button {
+      --border-radius: 8px;
+      font-weight: 600;
+      color: white !important;
+      --ion-color-contrast: white !important;
+
+      @media (max-width: 480px) {
+        width: 100%;
+        --padding-start: 20px;
+        --padding-end: 20px;
+        font-size: 14px;
+        height: 44px;
+      }
+
+      @media (min-width: 481px) and (max-width: 600px) {
+        --padding-start: 12px;
+        --padding-end: 12px;
+        font-size: 13px;
+        height: 36px;
+      }
+    }
+  }
+
+  // Owned state
+}
+
+// Narrow banner for season ticket owners
+.season-ticket-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 0 auto 16px;
+  width: fit-content;
+  max-width: 90%;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #10b981;
+  border-radius: 20px;
+  
+  @media (min-width: 480px) {
+    gap: 10px;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    border-radius: 24px;
+  }
+  
+  @media (min-width: 768px) {
+    margin-bottom: 32px;
+  }
+
+  ion-icon {
+    font-size: 18px;
+    color: #059669;
+    flex-shrink: 0;
+    
+    @media (min-width: 480px) {
+      font-size: 22px;
+    }
+  }
+
+  .banner-text {
+    font-size: 0.8125rem;
+    color: #065f46;
+    line-height: 1.3;
+
+    @media (min-width: 480px) {
+      font-size: 0.9375rem;
+      line-height: 1.4;
+    }
+
+    strong {
+      font-weight: 600;
+    }
+  }
+}

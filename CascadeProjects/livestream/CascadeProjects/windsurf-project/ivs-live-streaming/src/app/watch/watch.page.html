@@ -1,0 +1,211 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/events"></ion-back-button>
+    </ion-buttons>
+    <ion-title class="heading">{{ isRecordingMode ? 'Watch Recording' : 'Live Concert' }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button class="toolbar-icon-btn" fill="clear" routerLink="/events">
+        <ion-icon name="home-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="watch-layout">
+    <!-- Main Content (Video + Event Info) -->
+    <div class="main-column">
+      <!-- Video Player (IVS for paid events and recordings) -->
+      <div class="player-shell" [hidden]="event?.event_type === 'free' || event?.event_type === 'free-short'">
+        <video
+          #videoEl
+          class="video"
+          playsinline
+          autoplay
+          controls
+          (click)="resumePlayback()"
+        ></video>
+
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="overlay">
+          <div class="overlay-content">
+            <div class="spinner"></div>
+            <p>Loading stream...</p>
+          </div>
+        </div>
+
+        <!-- Offline State -->
+        <div *ngIf="!isLoading && streamStatus === 'offline'" class="overlay offline">
+          <div class="overlay-content">
+            <span class="status-icon">📺</span>
+            <p>Stream has ended or is not available.</p>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div *ngIf="!isLoading && streamStatus === 'error' && errorMessage" class="overlay error">
+          <div class="overlay-content">
+            <span class="status-icon">⚠️</span>
+            <p>{{ errorMessage }}</p>
+            <ion-button size="small" (click)="ngOnInit()">Try Again</ion-button>
+          </div>
+        </div>
+
+        <!-- Device Limit State -->
+        <div *ngIf="!isLoading && streamStatus === 'device-limit'" class="overlay device-limit">
+          <div class="overlay-content">
+            <span class="status-icon">📱</span>
+            <h3>Device Limit Reached</h3>
+            <p>{{ deviceLimitMessage }}</p>
+            <p class="hint">You can watch from a maximum of {{ maxDevices }} devices at a time.</p>
+            <ion-button size="small" routerLink="/events">Back to Events</ion-button>
+          </div>
+        </div>
+
+        <!-- Live Badge -->
+        <div *ngIf="streamStatus === 'live'" class="live-indicator">
+          <span class="live-badge">● LIVE</span>
+        </div>
+
+        <!-- Recording Badge with Session Info -->
+        <div *ngIf="streamStatus === 'recording'" class="live-indicator">
+          <span class="recording-badge">● RECORDING</span>
+          <span *ngIf="totalSessions > 1" class="session-info">
+            Part {{ currentSessionIndex + 1 }} of {{ totalSessions }}
+          </span>
+        </div>
+
+        <!-- Recording Ended -->
+        <div *ngIf="streamStatus === 'ended'" class="overlay">
+          <div class="overlay-content">
+            <p>Recording playback complete</p>
+            <ion-button size="small" (click)="playSession(0)">Watch Again</ion-button>
+            <ion-button size="small" routerLink="/events">Back to Events</ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Navigation (for multi-session recordings) -->
+      <div *ngIf="isRecordingMode && totalSessions > 1 && !isLoading" class="session-nav">
+        <div class="session-nav-header">
+          <span class="session-nav-title">Recording Sessions ({{ totalSessions }})</span>
+        </div>
+        <div class="session-list">
+          <button 
+            *ngFor="let session of recordingSessions; let i = index"
+            class="session-btn"
+            [class.active]="i === currentSessionIndex"
+            (click)="playSession(i)"
+          >
+            <span class="session-num">{{ i + 1 }}</span>
+            <span class="session-time" *ngIf="session.timestamp">{{ session.timestamp }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- YouTube Player (for free and free-short events) -->
+      <div class="player-shell youtube-player" *ngIf="event?.event_type === 'free' || event?.event_type === 'free-short'">
+        <iframe
+          *ngIf="getYouTubeEmbedUrl()"
+          [src]="getYouTubeEmbedUrl()"
+          class="video"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="overlay">
+          <div class="overlay-content">
+            <div class="spinner"></div>
+            <p>Loading video...</p>
+          </div>
+        </div>
+
+        <!-- Free Event Badge - Show RECORDING for past events, FREE for live -->
+        <div *ngIf="!isLoading" class="live-indicator">
+          <span *ngIf="isPastEvent" class="recording-badge">● RECORDING</span>
+          <span *ngIf="!isPastEvent" class="free-badge">FREE</span>
+        </div>
+      </div>
+
+      <!-- Event Info Section (YouTube-like) -->
+      <div *ngIf="!isLoading && event" class="event-info">
+        <h1 class="event-title">{{ event.title }}</h1>
+        <div class="event-meta">
+          <div class="meta-item">
+            <span class="meta-icon">📅</span>
+            <span>{{ event.starts_at | eventTime:'full' }}</span>
+          </div>
+          <div class="meta-item" *ngIf="viewerCount > 0">
+            <span class="meta-icon">👁</span>
+            <span>{{ viewerCount }} watching</span>
+          </div>
+        </div>
+        <div class="event-actions">
+          <ion-button fill="outline" size="small" (click)="shareEvent()">
+            📤 Share
+          </ion-button>
+        </div>
+        <p class="event-description" *ngIf="event.description">{{ event.description }}</p>
+      </div>
+    </div>
+
+    <!-- Comments Sidebar -->
+    <div *ngIf="!isLoading" class="comments-column">
+      <div class="comments-header">
+        <h2 class="comments-title">Comments</h2>
+        <span class="comments-count" *ngIf="comments.length">{{ comments.length }} comments</span>
+      </div>
+
+      <div class="yt-composer">
+        <div class="avatar">{{ getEventAvatarInitial() }}</div>
+        <div class="composer-right">
+          <ion-item class="composer-input" lines="none">
+            <ion-textarea
+              [(ngModel)]="commentText"
+              autoGrow="true"
+              placeholder="Add a comment..."
+            ></ion-textarea>
+          </ion-item>
+
+          <div class="emoji-bar">
+            <button *ngFor="let emoji of quickEmojis" class="emoji-btn" (click)="addEmoji(emoji.char)" [title]="emoji.name">
+              {{ emoji.char }}
+            </button>
+          </div>
+
+          <div class="composer-actions">
+            <ion-button
+              size="small"
+              (click)="submitComment()"
+              [disabled]="isSubmittingComment || !commentText.trim()"
+            >
+              Post Comment
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!comments.length" class="comments-empty">
+        🎵 Be the first to share your thoughts on this performance
+      </div>
+
+      <div *ngIf="comments.length" class="comments-list">
+        <div class="yt-comment" *ngFor="let c of comments">
+          <div class="avatar small">{{ (c.user_name || c.user_email || 'U').slice(0,1).toUpperCase() }}</div>
+          <div class="comment-right">
+            <div class="comment-meta">
+              <span class="comment-user">{{ c.user_name || c.user_email }}</span>
+              <span class="comment-time">{{ c.created_at | date:'short' }}</span>
+            </div>
+            <div class="comment-body">{{ c.body }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-footer></app-footer>
+  </div>
+</ion-content>

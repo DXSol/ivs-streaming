@@ -1,0 +1,580 @@
+.profile-container {
+  padding: 16px;
+  max-width: 500px;
+  margin: 0 auto;
+
+  @media (min-width: 768px) {
+    padding: 32px 24px;
+  }
+}
+
+.loading-state {
+  text-align: center;
+  padding: 64px 24px;
+  color: var(--theme-text-secondary);
+
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9375rem;
+  }
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--theme-accent-maroon) 0%, var(--theme-accent-gold) 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 2rem;
+  margin: 0 auto 16px;
+  box-shadow: 0 4px 12px rgba(157, 23, 77, 0.25);
+}
+
+.profile-name {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--theme-text-primary);
+  margin: 0 0 4px;
+  letter-spacing: -0.02em;
+}
+
+.profile-mobile {
+  font-size: 0.9375rem;
+  color: var(--theme-text-secondary);
+  margin: 0;
+}
+
+.payment-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(157, 23, 77, 0.08) 0%, rgba(212, 165, 116, 0.08) 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(157, 23, 77, 0.15);
+
+  .payment-label {
+    font-size: 0.75rem;
+    color: var(--theme-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .payment-amount {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--theme-accent-maroon);
+  }
+}
+
+.profile-card {
+  background: var(--theme-card-bg);
+  border: 1px solid var(--theme-card-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--theme-card-shadow);
+  padding: 24px;
+
+  @media (min-width: 768px) {
+    padding: 32px;
+  }
+}
+
+.card-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--theme-text-primary);
+  margin: 0 0 24px;
+  letter-spacing: -0.01em;
+}
+
+.message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: var(--app-radius-sm);
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+
+  ion-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  &.success {
+    background: rgba(5, 150, 105, 0.1);
+    color: #047857;
+    border: 1px solid rgba(5, 150, 105, 0.2);
+  }
+
+  &.error {
+    background: rgba(220, 38, 38, 0.08);
+    color: #b91c1c;
+    border: 1px solid rgba(220, 38, 38, 0.15);
+  }
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--theme-text-primary);
+  margin-bottom: 8px;
+
+  ion-icon {
+    font-size: 16px;
+    color: var(--theme-accent-maroon);
+  }
+
+  .optional {
+    font-weight: 400;
+    color: var(--theme-text-muted);
+    font-size: 0.75rem;
+  }
+}
+
+ion-item {
+  --background: #f9fafb;
+  --border-color: transparent;
+  --border-radius: var(--app-radius-sm);
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --min-height: 48px;
+  border: 1px solid var(--theme-card-border);
+  border-radius: var(--app-radius-sm);
+  transition: all 0.2s ease;
+
+  &:focus-within {
+    border-color: var(--theme-accent-maroon);
+    box-shadow: 0 0 0 3px rgba(157, 23, 77, 0.1);
+  }
+
+  &.readonly {
+    --background: #f3f4f6;
+    opacity: 0.8;
+
+    &:focus-within {
+      border-color: var(--theme-card-border);
+      box-shadow: none;
+    }
+  }
+
+  ion-input {
+    --placeholder-color: var(--theme-text-muted);
+    --placeholder-opacity: 1;
+    font-size: 0.9375rem;
+  }
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--theme-text-muted);
+  margin: 8px 0 0;
+  padding-left: 4px;
+}
+
+.form-actions {
+  margin-top: 28px;
+}
+
+.save-btn {
+  --border-radius: var(--app-radius-sm);
+  --background: var(--theme-accent-maroon);
+  --background-hover: var(--ion-color-primary-shade);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  height: 48px;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.profile-card.collapsible {
+  margin-top: 16px;
+
+  .card-header-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 4px 0;
+    user-select: none;
+
+    .card-title {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      ion-icon {
+        font-size: 20px;
+        color: var(--theme-accent-maroon);
+      }
+    }
+
+    .toggle-icon {
+      font-size: 20px;
+      color: var(--theme-text-secondary);
+      transition: transform 0.2s ease;
+    }
+
+    &:hover .toggle-icon {
+      color: var(--theme-accent-maroon);
+    }
+  }
+
+  .collapsible-content {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--theme-divider);
+  }
+}
+
+// Invoices Section
+.invoices-section {
+  margin-top: 24px;
+  background: #fff;
+  border-radius: var(--app-radius);
+  box-shadow: var(--theme-card-shadow);
+  overflow: hidden;
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      ion-icon {
+        font-size: 22px;
+        color: var(--theme-accent-maroon);
+      }
+    }
+
+    > ion-icon {
+      font-size: 20px;
+      color: var(--theme-text-secondary);
+    }
+  }
+
+  .section-content {
+    padding: 0 24px 24px;
+  }
+
+  .loading-state,
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    color: var(--theme-text-muted);
+
+    ion-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+    }
+  }
+
+  .loading-state {
+    flex-direction: row;
+    gap: 12px;
+  }
+}
+
+.invoices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.invoice-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: var(--app-radius-sm);
+  border: 1px solid var(--theme-card-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--theme-accent-maroon);
+    background: rgba(157, 23, 77, 0.02);
+  }
+
+  .invoice-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .invoice-number {
+      font-weight: 600;
+      font-size: 0.9375rem;
+      color: var(--theme-text-primary);
+    }
+
+    .invoice-type {
+      font-size: 0.75rem;
+      color: var(--theme-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .invoice-event {
+      font-size: 0.8125rem;
+      color: var(--theme-text-secondary);
+    }
+  }
+
+  .invoice-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+
+    .invoice-amount {
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--theme-accent-maroon);
+    }
+
+    .invoice-date {
+      font-size: 0.75rem;
+      color: var(--theme-text-muted);
+    }
+  }
+}
+
+// Invoice Modal
+.invoice-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.invoice-modal {
+  background: #fff;
+  border-radius: var(--app-radius);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+  .invoice-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--theme-divider);
+    background: var(--theme-accent-maroon);
+    color: #fff;
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: #fff;
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.8;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+
+  .invoice-modal-content {
+    padding: 24px;
+  }
+
+  .company-details {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--theme-accent-maroon);
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.25rem;
+      color: var(--theme-text-primary);
+    }
+
+    p {
+      margin: 4px 0;
+      font-size: 0.875rem;
+      color: var(--theme-text-secondary);
+    }
+  }
+
+  .invoice-details-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: var(--app-radius-sm);
+
+    .detail-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      label {
+        font-size: 0.75rem;
+        color: var(--theme-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      span {
+        font-weight: 600;
+        font-size: 0.9375rem;
+        color: var(--theme-text-primary);
+      }
+    }
+  }
+
+  .customer-details {
+    margin-bottom: 20px;
+
+    h4 {
+      margin: 0 0 8px;
+      font-size: 0.875rem;
+      color: var(--theme-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    p {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--theme-text-primary);
+    }
+  }
+
+  .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--theme-divider);
+    }
+
+    th {
+      font-size: 0.75rem;
+      color: var(--theme-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 600;
+    }
+
+    td {
+      font-size: 0.9375rem;
+      color: var(--theme-text-primary);
+    }
+
+    .text-right {
+      text-align: right;
+    }
+  }
+
+  .tax-breakdown {
+    background: #f9fafb;
+    border-radius: var(--app-radius-sm);
+    padding: 16px;
+    margin-bottom: 20px;
+
+    .tax-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 0.875rem;
+      color: var(--theme-text-secondary);
+
+      &.total {
+        border-top: 2px solid var(--theme-accent-maroon);
+        margin-top: 8px;
+        padding-top: 16px;
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--theme-text-primary);
+      }
+    }
+  }
+
+  .invoice-footer-note {
+    text-align: center;
+    padding-top: 16px;
+    border-top: 1px dashed var(--theme-divider);
+
+    p {
+      margin: 0;
+      font-size: 0.75rem;
+      color: var(--theme-text-muted);
+      font-style: italic;
+    }
+  }
+}

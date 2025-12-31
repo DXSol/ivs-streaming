@@ -1,0 +1,272 @@
+/*
+ * App Global CSS
+ * ----------------------------------------------------------------------------
+ * Put style rules here that you want to apply globally. These styles are for
+ * the entire app and not just one component. Additionally, this file can be
+ * used as an entry point to import other CSS/Sass files to be included in the
+ * output CSS.
+ * For more information on global stylesheets, visit the documentation:
+ * https://ionicframework.com/docs/layout/global-stylesheets
+ */
+
+/* Core CSS required for Ionic components to work properly */
+@import "@ionic/angular/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import "@ionic/angular/css/display.css";
+
+/* Optional CSS utils that can be commented out */
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+/**
+ * Ionic Dark Mode
+ * -----------------------------------------------------
+ * For more info, please see:
+ * https://ionicframework.com/docs/theming/dark-mode
+ */
+
+/* @import "@ionic/angular/css/palettes/dark.always.css"; */
+/* @import "@ionic/angular/css/palettes/dark.class.css"; */
+@import '@ionic/angular/css/palettes/dark.system.css';
+
+// Modern Google Fonts - Inter for body, DM Serif Display for headings
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+ion-content {
+  --background: var(--theme-bg-gradient);
+}
+
+// Fix video element overlapping header on scroll
+ion-header {
+  position: sticky !important;
+  top: 0;
+  z-index: 999 !important;
+  background: var(--ion-toolbar-background, var(--ion-background-color, #fff));
+}
+
+ion-header ion-toolbar {
+  --background: var(--theme-card-bg);
+  
+  // Ensure toolbar icon buttons have maroon color
+  .toolbar-icon-btn {
+    --color: var(--theme-accent-maroon, #9d174d) !important;
+    
+    ion-icon {
+      color: var(--theme-accent-maroon, #9d174d) !important;
+    }
+    
+    &:hover ion-icon {
+      color: var(--theme-gold, #d4a574) !important;
+    }
+  }
+}
+
+video {
+  position: relative;
+  z-index: 0 !important;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--theme-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+}
+
+// Modern heading typography
+h1, h2, h3, .heading {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  color: var(--theme-text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 2rem;
+  
+  @media (min-width: 768px) {
+    font-size: 2.5rem;
+  }
+}
+
+h2 {
+  font-size: 1.5rem;
+  
+  @media (min-width: 768px) {
+    font-size: 1.75rem;
+  }
+}
+
+h3 {
+  font-size: 1.25rem;
+  
+  @media (min-width: 768px) {
+    font-size: 1.375rem;
+  }
+}
+
+// Page container with responsive padding
+.page-shell {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  @media (min-width: 768px) {
+    padding: 24px;
+  }
+
+  @media (min-width: 1024px) {
+    padding: 32px;
+  }
+}
+
+// Themed card component
+.surface-card {
+  background: var(--theme-card-bg);
+  border: 1px solid var(--theme-card-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--theme-card-shadow);
+  backdrop-filter: blur(12px);
+}
+
+// Gold accent border for special cards
+.surface-card.gold-accent {
+  border-top: 3px solid var(--theme-accent-gold);
+}
+
+// Decorative divider with cultural motif
+.divider {
+  height: 1px;
+  background: var(--theme-divider);
+  margin: 16px 0;
+  position: relative;
+
+  &::after {
+    content: '◆';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--theme-bg-gradient);
+    padding: 0 12px;
+    color: var(--theme-accent-gold);
+    font-size: 10px;
+  }
+}
+
+// Text utilities
+.muted {
+  color: var(--theme-text-muted);
+}
+
+.text-secondary {
+  color: var(--theme-text-secondary);
+}
+
+.text-danger {
+  color: var(--ion-color-danger);
+}
+
+.text-gold {
+  color: var(--theme-accent-gold);
+}
+
+.text-maroon {
+  color: var(--theme-accent-maroon);
+}
+
+// Responsive grid utilities
+.responsive-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+// Button enhancements
+ion-button {
+  --border-radius: var(--app-radius-sm);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+// Toolbar styling
+ion-toolbar {
+  --background: transparent;
+  --border-width: 0;
+}
+
+ion-header {
+  &::after {
+    display: none;
+  }
+}
+
+// Input styling
+ion-item {
+  --background: transparent;
+  --border-radius: var(--app-radius-sm);
+}
+
+ion-input, ion-textarea {
+  --placeholder-color: var(--theme-text-muted);
+}
+
+// Avatar styling
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--theme-accent-maroon) 0%, var(--theme-accent-gold) 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+
+  &.small {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  &.large {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+}
+
+// Refund Policy Modal Styles
+.refund-policy-modal {
+  --width: 90%;
+  --max-width: 500px;
+  --height: auto;
+  --max-height: 80vh;
+  --border-radius: 12px;
+  --box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+
+  ion-modal {
+    --backdrop-opacity: 0.5;
+  }
+}

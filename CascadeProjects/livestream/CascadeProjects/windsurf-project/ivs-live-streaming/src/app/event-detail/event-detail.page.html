@@ -1,0 +1,177 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/events"></ion-back-button>
+    </ion-buttons>
+    <ion-title class="heading">Concert Details</ion-title>
+    <ion-buttons slot="end">
+      <ion-button class="toolbar-icon-btn" fill="clear" routerLink="/events">
+        <ion-icon name="home-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="event-detail-container">
+    <div *ngIf="isLoading" class="loading-state">Loading concert details...</div>
+    <div *ngIf="!isLoading && errorMessage" class="error">{{ errorMessage }}</div>
+
+    <div *ngIf="!isLoading && event" class="event-hero">
+      <div class="hero-poster" *ngIf="event.poster_url">
+        <img [src]="event.poster_url" [alt]="event.title">
+      </div>
+      <div class="hero-accent" *ngIf="!event.poster_url"></div>
+      <div class="hero-content">
+        <h1 class="event-title">{{ event.title }}</h1>
+        
+        <div class="event-meta">
+          <div class="meta-item">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>{{ event.starts_at | eventTime:'full' }}</span>
+          </div>
+        </div>
+
+        <p class="event-description" *ngIf="event.description">{{ event.description }}</p>
+
+        <div class="event-actions">
+          <!-- Past Event -->
+          <div *ngIf="isPastEvent" class="past-event-notice">
+            <span class="past-badge">Event Ended</span>
+            
+            <!-- Paid: Recording available with expiry info -->
+            <ng-container *ngIf="event.event_type === 'paid' && isRecordingAvailable()">
+              <p class="recording-expiry-notice">
+                <ion-icon name="time-outline"></ion-icon>
+                Recording available for {{ getRecordingTimeRemaining() }}
+              </p>
+              <ion-button 
+                *ngIf="isLoggedIn && hasAccessToEvent()"
+                color="tertiary"
+                [routerLink]="['/watch', event.id]"
+                [queryParams]="{ mode: 'recording' }"
+              >
+                <ion-icon name="videocam-outline" slot="start"></ion-icon>
+                Watch Recording
+              </ion-button>
+              <p class="past-hint" *ngIf="!isLoggedIn || !hasAccessToEvent()">Purchase a ticket to watch the recording</p>
+            </ng-container>
+
+            <!-- Paid: Recording expired -->
+            <p class="recording-expired-notice" *ngIf="event.event_type === 'paid' && isRecordingExpired()">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              Recording has expired. Recordings are available for 3 days after the event.
+            </p>
+
+            <!-- Free/Free-Short: YouTube video always available -->
+            <ng-container *ngIf="event.event_type === 'free' || event.event_type === 'free-short'">
+              <ion-button 
+                *ngIf="isLoggedIn"
+                color="primary"
+                [routerLink]="['/watch', event.id]"
+              >
+                <ion-icon name="play-circle" slot="start"></ion-icon>
+                Watch Video
+              </ion-button>
+              <div class="login-prompt" *ngIf="!isLoggedIn">
+                <p>Login to watch this video</p>
+                <div class="button-group">
+                  <ion-button color="primary" routerLink="/login">
+                    <ion-icon name="log-in-outline" slot="start"></ion-icon>
+                    Login
+                  </ion-button>
+                  <ion-button fill="outline" routerLink="/register">
+                    <ion-icon name="person-add-outline" slot="start"></ion-icon>
+                    Register
+                  </ion-button>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+
+          <!-- Upcoming/Current Event - Paid (Regular Live) -->
+          <ng-container *ngIf="!isPastEvent && event.event_type === 'paid' && !event.recording_only">
+            <!-- Watch Live: Only for logged in users with access AND stream is live -->
+            <ion-button 
+              *ngIf="isLoggedIn && hasAccessToEvent()"
+              [routerLink]="['/watch', event.id]" 
+              [disabled]="!isStreamLive"
+            >
+              <ion-icon name="play-circle" slot="start"></ion-icon>
+              <span *ngIf="isStreamLive">Watch Live</span>
+              <span *ngIf="!isStreamLive">Waiting for stream...</span>
+            </ion-button>
+
+            <div class="stream-status" *ngIf="isLoggedIn && hasAccessToEvent()">
+              <span *ngIf="isStreamLive" class="status-live"><ion-icon name="radio-button-on-outline"></ion-icon> Stream is LIVE</span>
+              <span *ngIf="!isStreamLive" class="status-waiting"><ion-icon name="hourglass-outline"></ion-icon> Stream not started yet</span>
+            </div>
+
+            <!-- Buy Ticket: Show for logged out users OR logged in users without access -->
+            <div class="ticket-purchase" *ngIf="!hasAccessToEvent()">
+              <ion-button color="success" (click)="buyTicket()" [disabled]="isProcessingPayment">
+                <ion-spinner *ngIf="isProcessingPayment" name="crescent"></ion-spinner>
+                <ion-icon *ngIf="!isProcessingPayment" name="ticket-outline" slot="start"></ion-icon>
+                <span *ngIf="!isProcessingPayment">Buy Ticket - ₹{{ (event?.price_paise || 50000) / 100 }}</span>
+              </ion-button>
+              <p class="ticket-hint" *ngIf="isLoggedIn">Purchase ticket to watch the live stream</p>
+              <p class="ticket-hint" *ngIf="!isLoggedIn">Register or login to purchase ticket</p>
+            </div>
+          </ng-container>
+
+          <!-- Upcoming/Current Event - Paid (Deferred Live / Recording Only) -->
+          <ng-container *ngIf="!isPastEvent && event.event_type === 'paid' && event.recording_only">
+            <div class="deferred-live-notice">
+              <span class="deferred-live-badge">Deferred Live</span>
+              <p class="deferred-hint">Recording will be available on {{ getRecordingAvailableAt() }}</p>
+            </div>
+
+            <!-- Buy Ticket: Show for logged out users OR logged in users without access -->
+            <div class="ticket-purchase" *ngIf="!hasAccessToEvent()">
+              <ion-button color="success" (click)="buyTicket()" [disabled]="isProcessingPayment">
+                <ion-spinner *ngIf="isProcessingPayment" name="crescent"></ion-spinner>
+                <ion-icon *ngIf="!isProcessingPayment" name="ticket-outline" slot="start"></ion-icon>
+                <span *ngIf="!isProcessingPayment">Buy Ticket - ₹{{ (event?.price_paise || 50000) / 100 }}</span>
+              </ion-button>
+              <p class="ticket-hint" *ngIf="isLoggedIn">Purchase ticket to watch the recording</p>
+              <p class="ticket-hint" *ngIf="!isLoggedIn">Register or login to purchase ticket</p>
+            </div>
+
+            <div class="access-confirmed" *ngIf="isLoggedIn && hasAccessToEvent()">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              <span>You have access - recording will be available on {{ getRecordingAvailableAt() }}</span>
+            </div>
+          </ng-container>
+
+          <!-- Upcoming/Current Event - Free or Free-Short -->
+          <ng-container *ngIf="!isPastEvent && (event.event_type === 'free' || event.event_type === 'free-short')">
+            <!-- Watch: Only for logged in users -->
+            <ion-button 
+              *ngIf="isLoggedIn"
+              [routerLink]="['/watch', event.id]"
+            >
+              <ion-icon name="play-circle" slot="start"></ion-icon>
+              Watch Free Concert
+            </ion-button>
+
+            <div class="login-prompt" *ngIf="!isLoggedIn">
+              <p>Login to watch this free concert</p>
+              <div class="button-group">
+                <ion-button color="primary" routerLink="/login">
+                  <ion-icon name="log-in-outline" slot="start"></ion-icon>
+                  Login
+                </ion-button>
+                <ion-button fill="outline" routerLink="/register">
+                  <ion-icon name="person-add-outline" slot="start"></ion-icon>
+                  Register
+                </ion-button>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+
+    <app-footer></app-footer>
+  </div>
+</ion-content>
