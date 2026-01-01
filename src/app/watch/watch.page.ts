@@ -14,9 +14,11 @@ import {
   IonTitle,
   IonToolbar,
   IonIcon,
+  Platform,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { homeOutline } from 'ionicons/icons';
+import { Subscription } from 'rxjs';
 
 import { IvsPlayerService } from '../services/ivs-player.service';
 import { EventCommentDto, EventDto, EventsApiService } from '../services/events-api.service';
@@ -92,6 +94,8 @@ export class WatchPage implements OnInit, OnDestroy {
   private commentsTimer?: any;
   private viewerCountTimer?: any;
   private recordingUrlRefreshTimer?: any;
+  private resumeSubscription?: Subscription;
+  private pauseSubscription?: Subscription;
 
   // Cached YouTube embed URL to prevent iframe re-rendering
   private cachedYouTubeEmbedUrl: SafeResourceUrl | null = null;
@@ -118,9 +122,17 @@ export class WatchPage implements OnInit, OnDestroy {
     private recordingsApi: RecordingsApiService,
     private sanitizer: DomSanitizer,
     private ngZone: NgZone,
-    private auth: AuthService
+    private auth: AuthService,
+    private platform: Platform
   ) {
     addIcons({ homeOutline });
+    
+    // Listen for app resume (coming back from background)
+    this.resumeSubscription = this.platform.resume.subscribe(() => {
+      this.ngZone.run(() => {
+        this.onAppResume();
+      });
+    });
   }
 
   async ngOnInit() {
@@ -508,6 +520,55 @@ export class WatchPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Handle app resume from background.
+   * Attempts to resume video playback when user returns to the app.
+   */
+  private async onAppResume(): Promise<void> {
+    console.log('[Watch] App resumed from background');
+    
+    // Only attempt to resume if we have a player and were playing
+    if (!this.player || !this.videoElRef?.nativeElement) return;
+    
+    const video = this.videoElRef.nativeElement;
+    const wasPlaying = this.streamStatus === 'live' || this.streamStatus === 'recording';
+    
+    if (wasPlaying) {
+      try {
+        // For IVS player, we may need to reload the stream
+        if (video.paused) {
+          console.log('[Watch] Attempting to resume playback...');
+          await this.player.play();
+        }
+      } catch (err) {
+        console.error('[Watch] Failed to resume on app resume:', err);
+        // If play fails, try reloading the stream
+        if (this.playbackUrl && !this.isRecordingMode && this.eventId) {
+          try {
+            console.log('[Watch] Reloading stream with fresh token...');
+            const { token, expiresAt } = await this.ivsApi.getPlaybackToken(this.eventId);
+            const urlWithToken = `${this.playbackUrl}?token=${encodeURIComponent(token)}`;
+            this.player.load(urlWithToken);
+            await this.player.play();
+            this.scheduleRefresh(this.eventId, this.playbackUrl, expiresAt);
+          } catch (reloadErr) {
+            console.error('[Watch] Failed to reload stream:', reloadErr);
+          }
+        } else if (this.isRecordingMode && this.playbackUrl) {
+          try {
+            console.log('[Watch] Reloading recording...');
+            const currentTime = video.currentTime;
+            this.player.load(this.playbackUrl);
+            video.currentTime = currentTime;
+            await this.player.play();
+          } catch (reloadErr) {
+            console.error('[Watch] Failed to reload recording:', reloadErr);
+          }
+        }
+      }
+    }
+  }
+
   async shareEvent() {
     const shareUrl = 'https://events.edifyplus.com';
     const shareData = {
@@ -595,6 +656,14 @@ export class WatchPage implements OnInit, OnDestroy {
     if (this.recordingUrlRefreshTimer) {
       clearTimeout(this.recordingUrlRefreshTimer);
       this.recordingUrlRefreshTimer = undefined;
+    }
+    if (this.resumeSubscription) {
+      this.resumeSubscription.unsubscribe();
+      this.resumeSubscription = undefined;
+    }
+    if (this.pauseSubscription) {
+      this.pauseSubscription.unsubscribe();
+      this.pauseSubscription = undefined;
     }
     // End viewing session (only for live streams, not recordings)
     if (!this.isRecordingMode) {

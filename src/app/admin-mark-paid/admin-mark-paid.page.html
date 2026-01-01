@@ -37,6 +37,13 @@
               <span *ngIf="g.user_mobile">📱 {{ g.user_mobile }}</span>
               <span *ngIf="g.user_country">🌍 {{ g.user_country }}</span>
               <span class="total-paid">💰 ₹{{ g.total_paid_cents / 100 }}</span>
+              <span class="season-ticket-toggle" (click)="$event.stopPropagation()">
+                <ion-checkbox
+                  [checked]="g.season_ticket_status === 'paid'"
+                  (ionChange)="toggleSeasonTicket(g, $event.detail.checked)"
+                ></ion-checkbox>
+                <span class="season-ticket-label" [class.active]="g.season_ticket_status === 'paid'">🎫 Season Ticket</span>
+              </span>
             </div>
           </div>
           <div class="user-actions">

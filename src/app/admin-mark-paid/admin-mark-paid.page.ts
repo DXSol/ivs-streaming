@@ -32,6 +32,8 @@ interface UserGroup {
   user_mobile: string | null;
   user_country: string | null;
   total_paid_cents: number;
+  season_ticket_status: 'pending' | 'paid' | null;
+  season_ticket_purchased_at: string | null;
   items: AdminSubscriptionRow[];
 }
 
@@ -137,6 +139,8 @@ export class AdminMarkPaidPage implements OnInit {
           user_mobile: row.user_mobile,
           user_country: row.user_country,
           total_paid_cents: row.total_paid_cents,
+          season_ticket_status: row.season_ticket_status,
+          season_ticket_purchased_at: row.season_ticket_purchased_at,
           items: []
         };
         map.set(key, group);
@@ -170,6 +174,16 @@ export class AdminMarkPaidPage implements OnInit {
       row.ticket_status = paid ? 'paid' : 'pending';
     } catch (e: any) {
       this.errorMessage = e?.error?.error || e?.message || 'Failed to update ticket';
+    }
+  }
+
+  async toggleSeasonTicket(user: UserGroup, paid: boolean) {
+    try {
+      await this.adminApi.setSeasonTicketStatus(user.user_id, paid);
+      user.season_ticket_status = paid ? 'paid' : null;
+      user.season_ticket_purchased_at = paid ? new Date().toISOString() : null;
+    } catch (e: any) {
+      this.errorMessage = e?.error?.error || e?.message || 'Failed to update season ticket';
     }
   }
 

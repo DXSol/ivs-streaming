@@ -179,6 +179,7 @@ export interface Invoice {
   company_address: string;
   company_phone?: string;
   company_gstin: string;
+  sac_code?: string;
   invoice_date: string;
   created_at: string;
 }

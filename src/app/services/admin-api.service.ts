@@ -11,9 +11,12 @@ export interface AdminSubscriptionRow {
   user_country: string | null;
   event_id: string;
   event_title: string;
+  event_starts_at: string;
   ticket_status: 'pending' | 'paid' | 'none';
   subscribed_at: string | null;
   total_paid_cents: number;
+  season_ticket_status: 'pending' | 'paid' | null;
+  season_ticket_purchased_at: string | null;
 }
 
 @Injectable({
@@ -76,5 +79,10 @@ export class AdminApiService {
   async deleteEvent(eventId: string): Promise<void> {
     const url = `${environment.apiBaseUrl}/events/${eventId}`;
     await firstValueFrom(this.http.delete(url));
+  }
+
+  async setSeasonTicketStatus(userId: string, paid: boolean): Promise<void> {
+    const url = `${environment.apiBaseUrl}/admin/season-ticket-status`;
+    await firstValueFrom(this.http.post(url, { userId, paid }));
   }
 }

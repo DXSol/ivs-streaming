@@ -99,10 +99,10 @@ export class RazorpayService {
     eventId: string,
     amount: number,
     currency: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; invoiceId?: string }> {
     const url = `${environment.apiBaseUrl}/razorpay/verify-payment`;
     return await firstValueFrom(
-      this.http.post<{ success: boolean; message: string }>(url, {
+      this.http.post<{ success: boolean; message: string; invoiceId?: string }>(url, {
         ...paymentResult,
         eventId,
         amount,
@@ -124,10 +124,10 @@ export class RazorpayService {
   async verifySeasonPayment(
     paymentResult: PaymentResult,
     amountPaise: number
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; invoiceId?: string }> {
     const url = `${environment.apiBaseUrl}/razorpay/verify-season-payment`;
     return await firstValueFrom(
-      this.http.post<{ success: boolean; message: string }>(url, {
+      this.http.post<{ success: boolean; message: string; invoiceId?: string }>(url, {
         ...paymentResult,
         amountPaise,
       })

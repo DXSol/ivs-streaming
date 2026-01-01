@@ -122,10 +122,23 @@
   }
 }
 
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 24px;
+  
+  @media (max-width: 600px) {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
 .invoice-table {
   width: 100%;
+  min-width: 500px;
   border-collapse: collapse;
-  margin-bottom: 24px;
 
   th, td {
     padding: 14px 16px;
@@ -148,11 +161,27 @@
   }
 
   .description-col {
-    width: 70%;
+    width: 40%;
+  }
+
+  .sac-col {
+    width: 15%;
+    text-align: center;
+    font-family: monospace;
+  }
+
+  .qty-col {
+    width: 10%;
+    text-align: center;
+  }
+
+  .rate-col {
+    width: 17%;
+    text-align: right;
   }
 
   .amount-col {
-    width: 30%;
+    width: 18%;
     text-align: right;
   }
 

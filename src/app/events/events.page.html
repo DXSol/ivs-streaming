@@ -143,7 +143,7 @@
             <ng-container *ngIf="selectedTab === 'paid'">
               <span class="event-price">₹{{ (e.price_paise || 50000) / 100 }}</span>
               <!-- Deferred Live badge for recording-only events -->
-              <span class="deferred-live-badge" *ngIf="e.recording_only">Deferred Live</span>
+              <!--span class="deferred-live-badge" *ngIf="e.recording_only">Deferred Live</span-->
               <!-- Buy Ticket: Show for logged out users OR logged in users without access -->
               <ion-button
                 *ngIf="!hasAccessToEvent(e)"

@@ -65,10 +65,14 @@
       </div>
 
       <!-- Line Items Table -->
+      <div class="table-wrapper">
       <table class="invoice-table">
         <thead>
           <tr>
             <th class="description-col">Description</th>
+            <th class="sac-col">SAC</th>
+            <th class="qty-col">Qty</th>
+            <th class="rate-col">Rate (₹)</th>
             <th class="amount-col">Amount (₹)</th>
           </tr>
         </thead>
@@ -78,10 +82,14 @@
               {{ getInvoiceTypeLabel(invoice.invoice_type) }}
               <span *ngIf="invoice.event_title" class="event-name"> - {{ invoice.event_title }}</span>
             </td>
+            <td class="sac-col">{{ invoice.sac_code || '998439' }}</td>
+            <td class="qty-col">1</td>
+            <td class="rate-col">{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</td>
             <td class="amount-col">{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</td>
           </tr>
         </tbody>
       </table>
+      </div>
 
       <!-- Tax Summary -->
       <div class="tax-summary">

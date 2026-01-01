@@ -126,7 +126,9 @@ export class ProfilePage implements OnInit {
   }
 
   viewInvoice(invoice: Invoice) {
-    this.router.navigate(['/invoice', invoice.id]);
+    this.router.navigate(['/invoice', invoice.id], {
+      queryParams: { returnUrl: '/profile' }
+    });
   }
 
   getInvoiceTypeLabel(type: string): string {

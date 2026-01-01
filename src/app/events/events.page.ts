@@ -241,7 +241,18 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
         prefillEmail: user?.email,
       });
 
-      await this.razorpay.verifySeasonPayment(paymentResult, order.discountedPaise);
+      const verifyResult = await this.razorpay.verifySeasonPayment(paymentResult, order.discountedPaise);
+      
+      // Navigate to invoice if available
+      if (verifyResult.invoiceId) {
+        this.router.navigate(['/invoice', verifyResult.invoiceId], {
+          queryParams: { returnUrl: '/events' },
+          replaceUrl: true
+        });
+        return;
+      }
+      
+      // Fallback if no invoice
       this.hasSeasonTicket = true;
       this.seasonTicketPurchasedAt = new Date().toISOString();
       // Reload ticket status to get accurate data
@@ -462,8 +473,17 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
         prefillEmail: user?.email,
       });
 
-      await this.razorpay.verifyPayment(paymentResult, event.id, order.amount, order.currency);
+      const verifyResult = await this.razorpay.verifyPayment(paymentResult, event.id, order.amount, order.currency);
       this.eventTicketStatus.set(event.id, { hasPaid: true, isProcessing: false });
+      
+      // Navigate to invoice if available
+      if (verifyResult.invoiceId) {
+        this.router.navigate(['/invoice', verifyResult.invoiceId], {
+          queryParams: { returnUrl: '/events' },
+          replaceUrl: true
+        });
+        return;
+      }
     } catch (e: any) {
       this.eventTicketStatus.set(event.id, { hasPaid: false, isProcessing: false });
       if (e?.message !== 'Payment cancelled by user') {

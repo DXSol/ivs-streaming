@@ -121,6 +121,32 @@
     color: var(--ion-color-success);
     font-weight: 600;
   }
+
+  .season-ticket-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+
+    ion-checkbox {
+      --size: 18px;
+      --checkbox-background-checked: var(--theme-accent-maroon);
+      --border-color-checked: var(--theme-accent-maroon);
+    }
+
+    .season-ticket-label {
+      color: var(--theme-text-muted);
+      transition: all 0.2s;
+
+      &.active {
+        background: linear-gradient(135deg, var(--theme-accent-maroon) 0%, var(--theme-accent-gold) 100%);
+        color: #fff;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-weight: 600;
+      }
+    }
+  }
 }
 
 .expand-icon {

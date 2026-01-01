@@ -117,9 +117,16 @@ export class LoginPage {
           prefillEmail: user?.email,
         });
 
-        await this.razorpay.verifySeasonPayment(paymentResult, order.discountedPaise);
+        const verifyResult = await this.razorpay.verifySeasonPayment(paymentResult, order.discountedPaise);
         this.pendingPurchase.clearPendingPurchase();
-        await this.router.navigate(['/events']);
+        if (verifyResult.invoiceId) {
+          await this.router.navigate(['/invoice', verifyResult.invoiceId], {
+            queryParams: { returnUrl: '/events' },
+            replaceUrl: true
+          });
+        } else {
+          await this.router.navigate(['/events']);
+        }
       } else if (pending.type === 'ticket' && pending.eventId) {
         const order = await this.razorpay.createOrder(pending.eventId);
         const user = this.auth.getUserSync();
@@ -133,9 +140,16 @@ export class LoginPage {
           prefillEmail: user?.email,
         });
 
-        await this.razorpay.verifyPayment(paymentResult, pending.eventId, order.amount, order.currency);
+        const verifyResult = await this.razorpay.verifyPayment(paymentResult, pending.eventId, order.amount, order.currency);
         this.pendingPurchase.clearPendingPurchase();
-        await this.router.navigate(['/events']);
+        if (verifyResult.invoiceId) {
+          await this.router.navigate(['/invoice', verifyResult.invoiceId], {
+            queryParams: { returnUrl: `/event/${pending.eventId}` },
+            replaceUrl: true
+          });
+        } else {
+          await this.router.navigate(['/events']);
+        }
       } else {
         this.pendingPurchase.clearPendingPurchase();
         await this.router.navigate(['/events']);

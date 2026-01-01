@@ -295,9 +295,18 @@ export class EventDetailPage implements OnInit, OnDestroy {
       });
 
       // Verify payment
-      await this.razorpay.verifyPayment(paymentResult, this.eventId, order.amount, order.currency);
+      const verifyResult = await this.razorpay.verifyPayment(paymentResult, this.eventId, order.amount, order.currency);
 
-      // Refresh access status
+      // Navigate to invoice if available
+      if (verifyResult.invoiceId) {
+        this.router.navigate(['/invoice', verifyResult.invoiceId], {
+          queryParams: { returnUrl: `/event/${this.eventId}` },
+          replaceUrl: true
+        });
+        return;
+      }
+
+      // Refresh access status (fallback if no invoice)
       const access = await this.eventsApi.getAccess(this.eventId);
       this.hasPaidTicket = access.hasPaidTicket;
       this.isSubscribed = access.isSubscribed;

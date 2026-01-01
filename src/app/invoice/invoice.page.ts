@@ -41,6 +41,7 @@ export class InvoicePage implements OnInit {
   invoice: Invoice | null = null;
   isLoading = true;
   errorMessage = '';
+  returnUrl: string = '/events';
 
   constructor(
     private route: ActivatedRoute,
@@ -52,6 +53,10 @@ export class InvoicePage implements OnInit {
 
   async ngOnInit() {
     const invoiceId = this.route.snapshot.paramMap.get('id');
+    
+    // Get return URL from query params (defaults to /events)
+    this.returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/events';
+    
     if (!invoiceId) {
       this.errorMessage = 'Invoice ID not provided';
       this.isLoading = false;
@@ -87,7 +92,7 @@ export class InvoicePage implements OnInit {
   }
 
   goBack() {
-    this.router.navigate(['/profile']);
+    this.router.navigate([this.returnUrl]);
   }
 
   numberToWords(num: number): string {
