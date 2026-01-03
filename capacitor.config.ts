@@ -5,7 +5,12 @@ const config: CapacitorConfig = {
   appName: 'Sampradaya Events',
   webDir: 'www',
   ios: {
-    allowsLinkPreview: false
+    allowsLinkPreview: false,
+    // Required for YouTube iframe playback on iOS
+    contentInset: 'automatic',
+    scrollEnabled: true,
+    // WKWebView configuration for inline video playback
+    preferredContentMode: 'mobile'
   },
   android: {
     allowMixedContent: true,

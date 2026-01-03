@@ -35,9 +35,13 @@ npm-debug.log
 yarn-error.log
 
 # Local env files (never commit secrets)
+# All .env files should be in backend/ directory only
 .env
+.env.local
+.env.*.local
 backend/.env
-backend/src/.env
+backend/.env.local
+backend/.env.*.local
 
 # IDEs and editors
 .idea/

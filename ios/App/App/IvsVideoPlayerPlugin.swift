@@ -22,11 +22,9 @@ public class IvsVideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "hideBadge", returnType: CAPPluginReturnPromise)
     ]
     
-    private var playerManager: IvsPlayerManager?
-    
-    public override func load() {
-        playerManager = IvsPlayerManager()
-    }
+    private lazy var playerManager: IvsPlayerManager = {
+        return IvsPlayerManager()
+    }()
     
     @objc func initialize(_ call: CAPPluginCall) {
         guard let url = call.getString("url") else {
@@ -44,7 +42,7 @@ public class IvsVideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             
             do {
-                try self.playerManager?.initialize(
+                try self.playerManager.initialize(
                     url: url,
                     playerId: playerId,
                     autoplay: autoplay,
@@ -59,21 +57,21 @@ public class IvsVideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     
     @objc func play(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            self?.playerManager?.play()
+            self?.playerManager.play()
             call.resolve(["success": true])
         }
     }
     
     @objc func pause(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            self?.playerManager?.pause()
+            self?.playerManager.pause()
             call.resolve(["success": true])
         }
     }
     
     @objc func toggleFullscreen(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            let isFullscreen = self?.playerManager?.toggleFullscreen() ?? false
+            let isFullscreen = self?.playerManager.toggleFullscreen() ?? false
             call.resolve([
                 "success": true,
                 "isFullscreen": isFullscreen
@@ -83,18 +81,18 @@ public class IvsVideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     
     @objc func destroy(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            self?.playerManager?.destroy()
+            self?.playerManager.destroy()
             call.resolve(["success": true])
         }
     }
     
     @objc func getCurrentTime(_ call: CAPPluginCall) {
-        let currentTime = playerManager?.getCurrentTime() ?? 0
+        let currentTime = playerManager.getCurrentTime()
         call.resolve(["currentTime": currentTime])
     }
     
     @objc func getDuration(_ call: CAPPluginCall) {
-        let duration = playerManager?.getDuration() ?? 0
+        let duration = playerManager.getDuration()
         call.resolve(["duration": duration])
     }
     
@@ -105,14 +103,14 @@ public class IvsVideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         
         DispatchQueue.main.async { [weak self] in
-            self?.playerManager?.seekTo(timeMs: seekTime)
+            self?.playerManager.seekTo(timeMs: seekTime)
             call.resolve(["success": true])
         }
     }
     
     @objc func handleBackPress(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            let handled = self?.playerManager?.handleBackPress() ?? false
+            let handled = self?.playerManager.handleBackPress() ?? false
             call.resolve(["handled": handled])
         }
     }
@@ -127,7 +125,7 @@ public class IvsVideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         
         DispatchQueue.main.async { [weak self] in
-            self?.playerManager?.setPlayerBounds(x: x, y: y, width: width, height: height)
+            self?.playerManager.setPlayerBounds(x: x, y: y, width: width, height: height)
             call.resolve(["success": true])
         }
     }
@@ -137,14 +135,14 @@ public class IvsVideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         let isLive = call.getBool("isLive") ?? true
         
         DispatchQueue.main.async { [weak self] in
-            self?.playerManager?.showBadge(text: text, isLive: isLive)
+            self?.playerManager.showBadge(text: text, isLive: isLive)
             call.resolve(["success": true])
         }
     }
     
     @objc func hideBadge(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            self?.playerManager?.hideBadge()
+            self?.playerManager.hideBadge()
             call.resolve(["success": true])
         }
     }

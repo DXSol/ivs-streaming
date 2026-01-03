@@ -24,9 +24,8 @@ class IvsPlayerManager: NSObject {
     
     override init() {
         super.init()
-        setupAudioSession()
-        setupRemoteCommandCenter()
-        setupNotifications()
+        // Defer audio session and remote command setup until player is initialized
+        // to avoid interfering with app startup
     }
     
     deinit {
@@ -168,6 +167,11 @@ class IvsPlayerManager: NSObject {
     func initialize(url: String, playerId: String, autoplay: Bool, viewController: UIViewController) throws {
         self.playerId = playerId
         self.parentViewController = viewController
+        
+        // Setup audio session and remote commands when player is initialized
+        setupAudioSession()
+        setupRemoteCommandCenter()
+        setupNotifications()
         
         guard let videoURL = URL(string: url) else {
             throw NSError(domain: "IvsPlayerManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])

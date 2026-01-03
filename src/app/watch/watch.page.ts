@@ -412,7 +412,8 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
 
     if (!videoId) return null;
     
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    // iOS requires playsinline=1 and additional parameters to avoid Error 153
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`;
     this.cachedYouTubeSourceUrl = url;
     this.cachedYouTubeEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
     return this.cachedYouTubeEmbedUrl;
