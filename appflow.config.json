@@ -1,0 +1,5 @@
+{
+  "hooks": {
+    "build:before": "cd ios/App && pod install --repo-update"
+  }
+}
