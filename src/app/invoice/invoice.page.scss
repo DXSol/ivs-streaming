@@ -31,6 +31,17 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.invoice-logo {
+  text-align: center;
+  margin-bottom: 20px;
+
+  img {
+    max-width: 150px;
+    max-height: 80px;
+    object-fit: contain;
+  }
+}
+
 .invoice-header {
   text-align: center;
   margin-bottom: 32px;

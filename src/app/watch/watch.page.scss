@@ -52,6 +52,19 @@
     border-radius: var(--app-radius);
   }
 }
+// Native player anchor - reserves space for native player overlay
+.video-anchor {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: black;
+  position: relative;
+  overflow: hidden;
+}
+
+.hidden {
+  visibility: hidden;
+  height: 0;
+}
 
 .video {
   position: absolute;
@@ -62,6 +75,7 @@
   object-fit: contain;
   z-index: 5;
 }
+
 
 // Ensure video controls are clickable when video is playing/paused
 video::-webkit-media-controls {

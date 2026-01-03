@@ -42,6 +42,7 @@ export class InvoicePage implements OnInit {
   isLoading = true;
   errorMessage = '';
   returnUrl: string = '/events';
+  isNewFormat = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -66,6 +67,8 @@ export class InvoicePage implements OnInit {
     try {
       const result = await this.auth.getInvoice(invoiceId);
       this.invoice = result.invoice;
+      // Check if invoice uses new format (YYYY/MM/H/serial) - contains /H/
+      this.isNewFormat = this.invoice?.invoice_number?.includes('/H/') || false;
     } catch (err: any) {
       this.errorMessage = 'Failed to load invoice';
       console.error('Failed to load invoice:', err);

@@ -18,7 +18,11 @@
     <div class="main-column">
       <!-- Video Player (IVS for paid events and recordings) -->
       <div class="player-shell" [hidden]="event?.event_type === 'free' || event?.event_type === 'free-short'">
+        <!-- Native player is rendered as fullscreen/overlay by native code, no anchor needed -->
+        
+        <!-- HTML5 video player for web browser -->
         <video
+          *ngIf="!useNativePlayer"
           #videoEl
           class="video"
           playsinline

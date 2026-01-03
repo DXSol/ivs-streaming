@@ -31,9 +31,9 @@
 
     <!-- Invoice Content -->
     <div *ngIf="!isLoading && invoice" class="invoice-content">
-      <!-- Invoice Header -->
-      <div class="invoice-header">
-        <h1>TAX INVOICE</h1>
+      <!-- Logo (only for new format invoices) -->
+      <div *ngIf="isNewFormat" class="invoice-logo">
+        <img src="assets/hope-logo.png" alt="Hope Logo" />
       </div>
 
       <!-- Company Details -->
@@ -42,6 +42,11 @@
         <p>{{ invoice.company_address }}</p>
         <p *ngIf="invoice.company_phone">{{ invoice.company_phone }}</p>
         <p><strong>GSTIN:</strong> {{ invoice.company_gstin }}</p>
+      </div>
+
+      <!-- Invoice Header (Tax Invoice title - centered, below company details) -->
+      <div class="invoice-header">
+        <h1>TAX INVOICE</h1>
       </div>
 
       <!-- Invoice Meta -->

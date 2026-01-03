@@ -85,7 +85,7 @@ export class CreateEventPage implements OnInit {
     }
 
     // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 8 * 1024 * 1024) {
       this.errorMessage = 'File too large. Maximum size is 5MB.';
       return;
     }

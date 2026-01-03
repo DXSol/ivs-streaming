@@ -8,7 +8,18 @@ const config: CapacitorConfig = {
     allowsLinkPreview: false
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: true,
+    webContentsDebuggingEnabled: true
+  },
+  server: {
+    androidScheme: 'https',
+    cleartext: true
+  },
+  plugins: {
+    App: {
+      // Prevent app from being killed when in background
+      keepRunning: true
+    }
   }
 };
 

@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, AfterViewInit } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, NgFor, NgIf } from '@angular/common';
@@ -21,6 +21,7 @@ import { homeOutline } from 'ionicons/icons';
 import { Subscription } from 'rxjs';
 
 import { IvsPlayerService } from '../services/ivs-player.service';
+import { IvsVideoPlayerService } from '../services/ivs-video-player.service';
 import { EventCommentDto, EventDto, EventsApiService } from '../services/events-api.service';
 import { IvsApiService } from '../services/ivs-api.service';
 import { ViewingSessionService } from '../services/viewing-session.service';
@@ -28,6 +29,7 @@ import { RecordingsApiService } from '../services/recordings-api.service';
 import { FooterComponent } from '../shared/footer/footer.component';
 import { AuthService } from '../services/auth.service';
 import { EventTimePipe } from '../pipes/event-time.pipe';
+import { Capacitor } from '@capacitor/core';
 
 @Component({
   selector: 'app-watch',
@@ -53,8 +55,16 @@ import { EventTimePipe } from '../pipes/event-time.pipe';
     EventTimePipe,
   ],
 })
-export class WatchPage implements OnInit, OnDestroy {
-  @ViewChild('videoEl', { static: true }) videoElRef!: ElementRef<HTMLVideoElement>;
+export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
+  
+  // Ionic lifecycle - called when navigating away from page
+  ionViewWillLeave() {
+    // Destroy native player when leaving the page
+    if (this.useNativePlayer) {
+      this.ivsVideoPlayer.destroy();
+    }
+  }
+  @ViewChild('videoEl', { static: false }) videoElRef?: ElementRef<HTMLVideoElement>;
 
   isLoading = true;
   errorMessage = '';
@@ -99,6 +109,9 @@ export class WatchPage implements OnInit, OnDestroy {
 
   // Cached YouTube embed URL to prevent iframe re-rendering
   private cachedYouTubeEmbedUrl: SafeResourceUrl | null = null;
+  
+  // Track if native player is initialized
+  private nativePlayerInitialized = false;
   private cachedYouTubeSourceUrl: string | null = null;
 
   // Multi-session recording playback
@@ -111,11 +124,15 @@ export class WatchPage implements OnInit, OnDestroy {
   private hasPaidTicket = false;
   private hasSeasonTicket = false;
   private seasonTicketPurchasedAt: string | null = null;
+  
+  // Platform detection for native vs web player
+  useNativePlayer = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private ivsPlayer: IvsPlayerService,
+    private ivsVideoPlayer: IvsVideoPlayerService,
     private eventsApi: EventsApiService,
     private ivsApi: IvsApiService,
     private viewingSession: ViewingSessionService,
@@ -127,12 +144,27 @@ export class WatchPage implements OnInit, OnDestroy {
   ) {
     addIcons({ homeOutline });
     
+    // Detect platform - use native player for Android/iOS, HTML5 for web
+    this.useNativePlayer = Capacitor.isNativePlatform();
+    console.log('[Watch] Platform detection - useNativePlayer:', this.useNativePlayer, 'Platform:', Capacitor.getPlatform());
+    
     // Listen for app resume (coming back from background)
     this.resumeSubscription = this.platform.resume.subscribe(() => {
       this.ngZone.run(() => {
         this.onAppResume();
       });
     });
+    
+    // Handle hardware back button for native player
+    if (this.useNativePlayer) {
+      this.platform.backButton.subscribeWithPriority(10, async () => {
+        const handled = await this.ivsVideoPlayer.handleBackPress();
+        if (!handled) {
+          // If player didn't handle it, navigate back
+          this.router.navigate(['/events']);
+        }
+      });
+    }
   }
 
   async ngOnInit() {
@@ -235,30 +267,49 @@ export class WatchPage implements OnInit, OnDestroy {
       const { token, expiresAt } = await this.ivsApi.getPlaybackToken(this.eventId);
       const urlWithToken = `${playbackUrl}?token=${encodeURIComponent(token)}`;
       
-      
+      // Platform-specific player initialization
+      if (this.useNativePlayer) {
+        // Use native player (ExoPlayer on Android, AVPlayer on iOS)
+        console.log('[Watch] Initializing native player for mobile platform');
+        try {
+          await this.ivsVideoPlayer.initialize(urlWithToken, 'ivs-native-player', true);
+          this.nativePlayerInitialized = true;
+          // Player starts in fullscreen landscape mode automatically
+          console.log('[Watch] Native player initialized in fullscreen mode');
+          
+          // Show LIVE badge on native player
+          await this.ivsVideoPlayer.showBadge('LIVE', true);
+        } catch (playerError) {
+          console.error('[Watch] Native player initialization failed:', playerError);
+          throw playerError;
+        }
+      } else {
+        // Use HTML5 IVS player for web browser
+        console.log('[Watch] Initializing IVS web player');
+        if (!this.videoElRef?.nativeElement) {
+          throw new Error('Video element not available for web player');
+        }
+        
+        try {
+          this.player = await this.ivsPlayer.createAndAttachPlayer(
+            this.videoElRef.nativeElement,
+            urlWithToken
+          );
+          
+          // Listen for player state changes
+          this.setupPlayerListeners();
 
-      try {
-        
-        this.player = await this.ivsPlayer.createAndAttachPlayer(
-          this.videoElRef.nativeElement,
-          urlWithToken
-        );
-        
-      } catch (playerError) {
-        
-        throw playerError;
+          // Enable sound by default
+          this.videoElRef.nativeElement.muted = false;
+          this.videoElRef.nativeElement.volume = 1;
+
+          await this.player.play();
+          console.log('[Watch] IVS web player initialized and playing');
+        } catch (playerError) {
+          console.error('[Watch] IVS player initialization failed:', playerError);
+          throw playerError;
+        }
       }
-
-      // Listen for player state changes
-      this.setupPlayerListeners();
-
-      // Enable sound by default
-      this.videoElRef.nativeElement.muted = false;
-      this.videoElRef.nativeElement.volume = 1;
-
-      
-      await this.player.play();
-      
 
       this.scheduleRefresh(this.eventId, playbackUrl, expiresAt);
 
@@ -352,18 +403,37 @@ export class WatchPage implements OnInit, OnDestroy {
       this.recordingUrlExpiresAt = this.recordingSessions[0].expiresAt;
       this.streamStatus = 'recording';
 
-      // Create HLS player for first session
-      this.player = await this.ivsPlayer.createAndAttachPlayer(
-        this.videoElRef.nativeElement,
-        this.playbackUrl
-      );
+      // Platform-specific player initialization for recordings
+      if (this.useNativePlayer) {
+        // Use native player for mobile
+        console.log('[Watch] Initializing native player for recording');
+        await this.ivsVideoPlayer.initialize(this.playbackUrl, 'ivs-native-player', true);
+        this.nativePlayerInitialized = true;
+        // Player starts in fullscreen landscape mode automatically
+        console.log('[Watch] Native player initialized for recording in fullscreen mode');
+        
+        // Show RECORDING badge on native player
+        await this.ivsVideoPlayer.showBadge('RECORDING', false);
+      } else {
+        // Use HTML5 IVS player for web
+        console.log('[Watch] Initializing IVS web player for recording');
+        if (!this.videoElRef?.nativeElement) {
+          throw new Error('Video element not available');
+        }
+        
+        this.player = await this.ivsPlayer.createAndAttachPlayer(
+          this.videoElRef.nativeElement,
+          this.playbackUrl
+        );
 
-      this.setupPlayerListeners();
+        this.setupPlayerListeners();
 
-      this.videoElRef.nativeElement.muted = false;
-      this.videoElRef.nativeElement.volume = 1;
+        this.videoElRef.nativeElement.muted = false;
+        this.videoElRef.nativeElement.volume = 1;
 
-      await this.player.play();
+        await this.player.play();
+        console.log('[Watch] IVS web player initialized for recording');
+      }
 
       // Schedule URL refresh before it expires (5 minutes before)
       this.scheduleRecordingUrlRefresh(this.recordingSessions[0].expiresAt);
@@ -487,7 +557,12 @@ export class WatchPage implements OnInit, OnDestroy {
       this.recordingUrlExpiresAt = recording.expiresAt;
 
       // Update player source
-      if (this.player) {
+      if (this.useNativePlayer) {
+        // For native player, reinitialize with new URL
+        await this.ivsVideoPlayer.destroy();
+        await this.ivsVideoPlayer.initialize(recording.playbackUrl, 'ivs-native-player', true);
+      } else if (this.player && this.videoElRef?.nativeElement) {
+        // For web player, reload source
         const currentTime = this.videoElRef.nativeElement.currentTime;
         this.player.load(recording.playbackUrl);
         
@@ -527,13 +602,27 @@ export class WatchPage implements OnInit, OnDestroy {
   private async onAppResume(): Promise<void> {
     console.log('[Watch] App resumed from background');
     
-    // Only attempt to resume if we have a player and were playing
-    if (!this.player || !this.videoElRef?.nativeElement) return;
-    
-    const video = this.videoElRef.nativeElement;
     const wasPlaying = this.streamStatus === 'live' || this.streamStatus === 'recording';
     
-    if (wasPlaying) {
+    if (!wasPlaying) return;
+    
+    // Platform-specific resume logic
+    if (this.useNativePlayer) {
+      // Native player (ExoPlayer/AVPlayer) should handle background audio automatically
+      // Just ensure it's playing when we return to foreground
+      console.log('[Watch] Resuming native player...');
+      try {
+        await this.ivsVideoPlayer.play();
+        console.log('[Watch] Native player resumed');
+      } catch (err) {
+        console.error('[Watch] Failed to resume native player:', err);
+      }
+    } else {
+      // Web player - IVS player resume logic
+      if (!this.player || !this.videoElRef?.nativeElement) return;
+      
+      const video = this.videoElRef.nativeElement;
+      
       try {
         // For IVS player, we may need to reload the stream
         if (video.paused) {
@@ -640,6 +729,11 @@ export class WatchPage implements OnInit, OnDestroy {
     }, delayMs);
   }
 
+  ngAfterViewInit() {
+    // Native player now starts in fullscreen mode automatically
+    // No positioning needed - player handles its own layout
+  }
+
   ngOnDestroy() {
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
@@ -669,8 +763,15 @@ export class WatchPage implements OnInit, OnDestroy {
     if (!this.isRecordingMode) {
       this.viewingSession.endSession();
     }
-    this.ivsPlayer.destroyPlayer(this.player);
-    this.player = undefined;
+    
+    // Cleanup player based on platform (may already be destroyed by ionViewWillLeave)
+    if (this.useNativePlayer) {
+      // destroy() is safe to call multiple times
+      this.ivsVideoPlayer.destroy();
+    } else {
+      this.ivsPlayer.destroyPlayer(this.player);
+      this.player = undefined;
+    }
   }
 
   private setupPlayerListeners() {

@@ -3,12 +3,27 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.dxsoltech.sampradayaevents"
     compileSdk = rootProject.ext.compileSdkVersion
+    
+    signingConfigs {
+        release {
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                def keystoreProperties = new Properties()
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+    
     defaultConfig {
         applicationId "com.dxsoltech.sampradayaevents"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,6 +35,10 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
@@ -40,6 +59,24 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    
+    // ExoPlayer for native video playback
+    implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
+    implementation 'com.google.android.exoplayer:exoplayer-hls:2.19.1'
+    implementation 'com.google.android.exoplayer:exoplayer-ui:2.19.1'
+    
+    // MediaSession for background audio and lockscreen controls
+    implementation 'androidx.media:media:1.7.0'
+    
+    // MediaRouter for Cast button
+    implementation 'androidx.mediarouter:mediarouter:1.7.0'
+    
+    // Google Cast framework for Chromecast support
+    implementation 'com.google.android.gms:play-services-cast-framework:21.3.0'
+    
+    // Material Design for icons and buttons
+    implementation 'com.google.android.material:material:1.11.0'
+    
 }
 
 apply from: 'capacitor.build.gradle'
