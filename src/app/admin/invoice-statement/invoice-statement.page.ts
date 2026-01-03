@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ViewWillEnter } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -77,7 +78,7 @@ interface Event {
     IonInput,
   ]
 })
-export class InvoiceStatementPage implements OnInit {
+export class InvoiceStatementPage implements OnInit, ViewWillEnter {
   invoices: InvoiceStatement[] = [];
   totals: StatementTotals = { subtotal_paise: 0, gst_paise: 0, total_paise: 0, count: 0 };
   events: Event[] = [];
@@ -97,6 +98,11 @@ export class InvoiceStatementPage implements OnInit {
 
   async ngOnInit() {
     await this.loadEvents();
+    await this.loadStatement();
+  }
+
+  async ionViewWillEnter() {
+    // Reload data when navigating to this page
     await this.loadStatement();
   }
 

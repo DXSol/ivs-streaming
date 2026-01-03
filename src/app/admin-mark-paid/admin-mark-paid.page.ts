@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ViewWillEnter } from '@ionic/angular/standalone';
 import { CommonModule, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -64,7 +65,7 @@ interface UserGroup {
     FooterComponent,
   ],
 })
-export class AdminMarkPaidPage implements OnInit {
+export class AdminMarkPaidPage implements OnInit, ViewWillEnter {
   isLoading = true;
   errorMessage = '';
 
@@ -94,6 +95,11 @@ export class AdminMarkPaidPage implements OnInit {
   }
 
   async ngOnInit() {
+    await this.load();
+  }
+
+  async ionViewWillEnter() {
+    // Reload data when navigating to this page
     await this.load();
   }
 

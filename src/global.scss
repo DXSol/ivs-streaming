@@ -229,6 +229,24 @@ ion-input, ion-textarea {
   --placeholder-color: var(--theme-text-muted);
 }
 
+// iOS text visibility fix - ensure input text is always visible
+// iOS sometimes applies white text color which makes text invisible on light backgrounds
+ion-input {
+  input {
+    color: inherit !important;
+    -webkit-text-fill-color: inherit !important;
+    opacity: 1 !important;
+  }
+}
+
+ion-textarea {
+  textarea {
+    color: inherit !important;
+    -webkit-text-fill-color: inherit !important;
+    opacity: 1 !important;
+  }
+}
+
 // Avatar styling
 .avatar {
   width: 44px;

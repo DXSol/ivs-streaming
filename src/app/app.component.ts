@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
@@ -8,6 +8,7 @@ import {
 import { addIcons } from 'ionicons';
 import { statsChartOutline, addCircleOutline, cardOutline, settingsOutline, peopleOutline, receiptOutline } from 'ionicons/icons';
 import { AuthService } from './services/auth.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -30,8 +31,9 @@ import { AuthService } from './services/auth.service';
     IonMenuToggle
   ],
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   isAdmin = false;
+  private authSubscription?: Subscription;
 
   adminMenuItems = [
     { title: 'Dashboard', url: '/admin/dashboard', icon: 'stats-chart-outline' },
@@ -46,7 +48,14 @@ export class AppComponent implements OnInit {
 
   async ngOnInit() {
     await this.auth.init();
-    const user = this.auth.getUserSync();
-    this.isAdmin = user?.role === 'admin';
+    
+    // Subscribe to auth state changes to update admin status reactively
+    this.authSubscription = this.auth.user$.subscribe(user => {
+      this.isAdmin = user?.role === 'admin';
+    });
+  }
+
+  ngOnDestroy() {
+    this.authSubscription?.unsubscribe();
   }
 }

@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ViewWillEnter } from '@ionic/angular/standalone';
 import { CommonModule, NgIf } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -48,7 +49,7 @@ import { EventTimePipe } from '../pipes/event-time.pipe';
     EventTimePipe,
   ],
 })
-export class EventDetailPage implements OnInit, OnDestroy {
+export class EventDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   isLoading = true;
   errorMessage = '';
 
@@ -85,6 +86,15 @@ export class EventDetailPage implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
+    await this.loadEventData();
+  }
+
+  async ionViewWillEnter() {
+    // Reload data when navigating to this page (e.g., after purchasing a ticket)
+    await this.loadEventData();
+  }
+
+  private async loadEventData() {
     await this.auth.init();
     const user = this.auth.getUserSync();
     this.isLoggedIn = !!user;
@@ -96,6 +106,9 @@ export class EventDetailPage implements OnInit, OnDestroy {
       this.isLoading = false;
       return;
     }
+
+    this.isLoading = true;
+    this.errorMessage = '';
 
     try {
       this.event = await this.eventsApi.getEvent(this.eventId);

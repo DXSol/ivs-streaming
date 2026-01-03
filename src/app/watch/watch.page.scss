@@ -213,6 +213,70 @@ video::-webkit-media-controls {
   font-weight: 500;
 }
 
+// Chromecast button
+.cast-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+  }
+
+  &.connected {
+    background: var(--ion-color-primary);
+    
+    .cast-icon {
+      fill: #fff;
+    }
+  }
+}
+
+.cast-icon {
+  width: 22px;
+  height: 22px;
+  fill: #fff;
+}
+
+.cast-icon-large {
+  width: 64px;
+  height: 64px;
+  fill: #fff;
+  margin-bottom: 16px;
+}
+
+.overlay.casting {
+  background: rgba(0, 0, 0, 0.9);
+  
+  .casting-text {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    
+    strong {
+      color: var(--ion-color-primary);
+    }
+  }
+
+  .casting-note {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 16px;
+    font-style: italic;
+  }
+}
+
 // Session navigation for multi-session recordings
 .session-nav {
   background: var(--theme-card-bg);

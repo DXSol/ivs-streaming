@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { BehaviorSubject, firstValueFrom, Observable } from 'rxjs';
 import { Preferences } from '@capacitor/preferences';
 import { environment } from '../../environments/environment';
 
@@ -33,6 +33,10 @@ export class AuthService {
   private initialized = false;
   private accessToken: string | null = null;
   private user: AuthUser | null = null;
+  
+  // Observable for auth state changes
+  private userSubject = new BehaviorSubject<AuthUser | null>(null);
+  public user$: Observable<AuthUser | null> = this.userSubject.asObservable();
 
   constructor(private http: HttpClient) {}
 
@@ -47,6 +51,7 @@ export class AuthService {
     this.accessToken = token.value || null;
     this.user = user.value ? (JSON.parse(user.value) as AuthUser) : null;
     this.initialized = true;
+    this.userSubject.next(this.user);
   }
 
   getAccessTokenSync(): string | null {
@@ -79,6 +84,7 @@ export class AuthService {
       Preferences.set({ key: USER_KEY, value: JSON.stringify(resp.user) }),
     ]);
 
+    this.userSubject.next(resp.user);
     return resp.user;
   }
 
@@ -99,6 +105,7 @@ export class AuthService {
       Preferences.set({ key: USER_KEY, value: JSON.stringify(resp.user) }),
     ]);
 
+    this.userSubject.next(resp.user);
     return resp.user;
   }
 
@@ -109,6 +116,7 @@ export class AuthService {
       Preferences.remove({ key: ACCESS_TOKEN_KEY }),
       Preferences.remove({ key: USER_KEY }),
     ]);
+    this.userSubject.next(null);
   }
 
   async updateProfile(data: { name?: string; email?: string; address?: string }): Promise<AuthUser> {

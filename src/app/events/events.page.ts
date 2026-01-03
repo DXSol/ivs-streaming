@@ -125,6 +125,10 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.isLoggedIn = !!user;
     this.isAdmin = user?.role === 'admin';
     this.cdr.detectChanges();
+    
+    // Reload events list every time the page is entered
+    await this.load();
+    
     await this.loadSeasonTicketPrice();
     if (this.isLoggedIn) {
       await this.loadUserTicketStatus();
@@ -188,6 +192,8 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
           isProcessing: false 
         });
       }
+      
+      this.cdr.detectChanges();
     } catch {
       // Silently fail - user might not be logged in
     }

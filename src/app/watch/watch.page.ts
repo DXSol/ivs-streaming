@@ -30,6 +30,7 @@ import { FooterComponent } from '../shared/footer/footer.component';
 import { AuthService } from '../services/auth.service';
 import { EventTimePipe } from '../pipes/event-time.pipe';
 import { Capacitor } from '@capacitor/core';
+import { ChromecastService, CastState } from '../services/chromecast.service';
 
 @Component({
   selector: 'app-watch',
@@ -128,6 +129,29 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
   // Platform detection for native vs web player
   useNativePlayer = false;
 
+  // Chromecast state
+  castState: CastState = {
+    isAvailable: false,
+    isConnected: false,
+    deviceName: null,
+    playerState: 'idle'
+  };
+  private castSubscription?: Subscription;
+  
+  // Chromecast settings from server
+  castSettings = {
+    enableLiveCasting: false,
+    enableRecordingCasting: true
+  };
+  
+  // Computed property to check if casting is allowed for current content
+  get isCastingAllowed(): boolean {
+    if (this.isRecordingMode) {
+      return this.castSettings.enableRecordingCasting;
+    }
+    return this.castSettings.enableLiveCasting;
+  }
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -140,7 +164,8 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     private sanitizer: DomSanitizer,
     private ngZone: NgZone,
     private auth: AuthService,
-    private platform: Platform
+    private platform: Platform,
+    private chromecast: ChromecastService
   ) {
     addIcons({ homeOutline });
     
@@ -163,6 +188,23 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
           // If player didn't handle it, navigate back
           this.router.navigate(['/events']);
         }
+      });
+    }
+
+    // Subscribe to Chromecast state changes (web only)
+    if (!this.useNativePlayer) {
+      let wasConnected = false;
+      this.castSubscription = this.chromecast.castState$.subscribe(state => {
+        this.ngZone.run(() => {
+          const justConnected = state.isConnected && !wasConnected;
+          wasConnected = state.isConnected;
+          this.castState = state;
+          
+          // If just connected and we have a playback URL, load media to Cast (only once)
+          if (justConnected && this.playbackUrl) {
+            this.loadMediaToCast();
+          }
+        });
       });
     }
   }
@@ -189,6 +231,14 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
       this.router.navigate(['/login']);
       return;
     }
+
+    // Fetch Chromecast settings from server (non-blocking)
+    this.eventsApi.getChromecastSettings().then(settings => {
+      this.castSettings = settings;
+      console.log('[Watch] Chromecast settings:', settings);
+    }).catch(err => {
+      console.warn('[Watch] Failed to fetch Chromecast settings, using defaults:', err);
+    });
 
     try {
       this.event = await this.eventsApi.getEvent(this.eventId);
@@ -680,6 +730,103 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  /**
+   * Toggle Chromecast - opens device picker or stops casting
+   */
+  async toggleCast(): Promise<void> {
+    if (this.castState.isConnected) {
+      this.stopCasting();
+    } else {
+      await this.chromecast.openCastDialog();
+    }
+  }
+
+  /**
+   * Stop casting and resume local playback
+   */
+  stopCasting(): void {
+    this.chromecast.stopCasting();
+    
+    // Resume local playback if we have a player
+    if (this.player && this.videoElRef?.nativeElement) {
+      try {
+        const playResult = this.player.play();
+        if (playResult && typeof playResult.catch === 'function') {
+          playResult.catch((err: any) => {
+            console.error('[Watch] Failed to resume local playback:', err);
+          });
+        }
+      } catch (err) {
+        console.error('[Watch] Failed to resume local playback:', err);
+      }
+    }
+  }
+
+  /**
+   * Load current media to Chromecast device
+   */
+  private castMediaLoading = false;
+  
+  private async loadMediaToCast(): Promise<void> {
+    // Prevent duplicate loading
+    if (this.castMediaLoading) {
+      console.log('[Watch] Cast media already loading, skipping');
+      return;
+    }
+    if (!this.eventId || !this.event || !this.playbackUrl) return;
+
+    this.castMediaLoading = true;
+
+    const isLive = this.streamStatus === 'live';
+    const title = this.event.title || (this.isRecordingMode ? 'Recording' : 'Live Stream');
+
+    // Pause local playback when casting
+    if (this.player) {
+      try {
+        this.player.pause();
+      } catch (err) {
+        console.warn('[Watch] Failed to pause local player:', err);
+      }
+    }
+
+    try {
+      let castUrl: string;
+
+      if (this.isRecordingMode) {
+        // For recordings, use the CloudFront signed URL directly
+        // CloudFront URLs have proper CORS headers and should work with Chromecast
+        console.log('[Watch] Loading recording to Chromecast directly (CloudFront URL)');
+        castUrl = this.playbackUrl;
+      } else {
+        // For live streams, use the proxy to handle IVS token authentication
+        console.log('[Watch] Creating stream proxy session for Chromecast...');
+        const proxySession = await this.eventsApi.createStreamProxySession(this.eventId);
+        castUrl = proxySession.proxyUrl;
+        
+        console.log('[Watch] Proxy session created:', {
+          proxyUrl: proxySession.proxyUrl,
+          expiresAt: proxySession.expiresAt
+        });
+      }
+      
+      console.log('[Watch] Loading to Chromecast:', {
+        url: castUrl,
+        title,
+        isLive,
+        isRecording: this.isRecordingMode
+      });
+
+      const success = await this.chromecast.loadMedia(castUrl, title, isLive);
+      if (!success) {
+        console.error('[Watch] Failed to load media to Chromecast');
+      }
+    } catch (err: any) {
+      console.error('[Watch] Failed to load media to Chromecast:', err);
+    } finally {
+      this.castMediaLoading = false;
+    }
+  }
+
   async submitComment() {
     if (!this.eventId) return;
 
@@ -758,6 +905,10 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.pauseSubscription) {
       this.pauseSubscription.unsubscribe();
       this.pauseSubscription = undefined;
+    }
+    if (this.castSubscription) {
+      this.castSubscription.unsubscribe();
+      this.castSubscription = undefined;
     }
     // End viewing session (only for live streams, not recordings)
     if (!this.isRecordingMode) {

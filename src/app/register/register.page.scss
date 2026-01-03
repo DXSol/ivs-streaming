@@ -96,13 +96,24 @@
 .mobile-row {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 
   .country-code {
     flex: 0 0 100px;
+    
+    @media (max-width: 400px) {
+      flex: 0 0 90px;
+    }
   }
 
   .mobile-number {
     flex: 1;
+    min-width: 180px;
+    
+    @media (max-width: 400px) {
+      flex: 1 1 100%;
+      min-width: 100%;
+    }
   }
 }
 
@@ -173,15 +184,37 @@ ion-item {
   ion-input {
     --placeholder-color: var(--theme-text-muted);
     --placeholder-opacity: 1;
-    --color: #1f2937;
-    color: #1f2937;
+    --color: #1f2937 !important;
+    color: #1f2937 !important;
     font-size: 0.9375rem;
+    
+    // Fix for iOS - ensure input text is visible
+    input {
+      color: #1f2937 !important;
+      -webkit-text-fill-color: #1f2937 !important;
+      opacity: 1 !important;
+    }
   }
 
   ion-select {
-    --color: #1f2937;
-    color: #1f2937;
+    --color: #1f2937 !important;
+    color: #1f2937 !important;
     font-size: 0.9375rem;
+  }
+  
+  ion-textarea {
+    --placeholder-color: var(--theme-text-muted);
+    --placeholder-opacity: 1;
+    --color: #1f2937 !important;
+    color: #1f2937 !important;
+    font-size: 0.9375rem;
+    
+    // Fix for iOS - ensure textarea text is visible
+    textarea {
+      color: #1f2937 !important;
+      -webkit-text-fill-color: #1f2937 !important;
+      opacity: 1 !important;
+    }
   }
 }
 

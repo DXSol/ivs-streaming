@@ -141,4 +141,21 @@ export class EventsApiService {
     const url = `${environment.apiBaseUrl}/events/user/ticket-status`;
     return await firstValueFrom(this.http.get<UserTicketStatusDto>(url));
   }
+
+  /**
+   * Create a proxy session for Chromecast streaming
+   * Returns a proxy URL that can be used by Chromecast to access the stream
+   */
+  async createStreamProxySession(eventId: string): Promise<{ proxyUrl: string; sessionId: string; expiresAt: string }> {
+    const url = `${environment.apiBaseUrl}/stream-proxy/create-session`;
+    return await firstValueFrom(this.http.post<{ proxyUrl: string; sessionId: string; expiresAt: string }>(url, { eventId }));
+  }
+
+  /**
+   * Get Chromecast settings from the server
+   */
+  async getChromecastSettings(): Promise<{ enableLiveCasting: boolean; enableRecordingCasting: boolean }> {
+    const url = `${environment.apiBaseUrl}/settings/chromecast`;
+    return await firstValueFrom(this.http.get<{ enableLiveCasting: boolean; enableRecordingCasting: boolean }>(url));
+  }
 }

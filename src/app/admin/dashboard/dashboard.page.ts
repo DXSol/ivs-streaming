@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ViewWillEnter } from '@ionic/angular/standalone';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -41,7 +42,7 @@ interface DashboardEvent {
     FooterComponent
   ]
 })
-export class DashboardPage implements OnInit, OnDestroy {
+export class DashboardPage implements OnInit, OnDestroy, ViewWillEnter {
   events: DashboardEvent[] = [];
   isLoading = true;
   errorMessage = '';
@@ -53,6 +54,11 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.loadDashboard();
     // Auto-refresh every 30 seconds
     this.refreshInterval = setInterval(() => this.loadDashboard(true), 30000);
+  }
+
+  ionViewWillEnter() {
+    // Reload data when navigating to this page
+    this.loadDashboard();
   }
 
   ngOnDestroy() {
