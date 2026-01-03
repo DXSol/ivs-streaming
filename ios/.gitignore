@@ -1,6 +1,7 @@
 App/build
 App/Pods
 App/output
+App/*.xcworkspace
 App/App/public
 DerivedData
 xcuserdata
