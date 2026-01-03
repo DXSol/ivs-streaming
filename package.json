@@ -9,9 +9,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint",
-    "capacitor:sync:after": "cd ios/App && pod install --repo-update || true",
-    "postbuild": "cd ios/App && pod install --repo-update || true"
+    "lint": "ng lint"
   },
   "private": true,
   "dependencies": {

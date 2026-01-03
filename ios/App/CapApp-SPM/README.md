@@ -1,5 +1,8 @@
 # CapApp-SPM
 
-This SPM is used to host SPM dependencies for you Capacitor project
+> [!WARNING]
+> SPM Support is currently experimental.
 
-Do not modify the contents of it or there may be unintended consequences.
+This SPM is used to host SPM dependancies for you Capacitor project
+
+Do not modifiy the contents of it or there may be unintended concquences.
