@@ -30,9 +30,14 @@ log.txt
 /bazel-out
 
 # Node
+node_modules/
 /node_modules
 npm-debug.log
 yarn-error.log
+
+# Backend build artifacts
+backend/dist/
+backend/node_modules/
 
 # Local env files (never commit secrets)
 # All .env files should be in backend/ directory only
