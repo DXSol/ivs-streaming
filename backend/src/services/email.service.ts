@@ -13,24 +13,38 @@ function getResendInstance(): Resend {
   return resendInstance;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+}
+
 export interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  attachments?: EmailAttachment[];
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   try {
     const resend = getResendInstance();
-    
-    const { data, error } = await resend.emails.send({
+
+    // Build email payload
+    const emailPayload: any = {
       from: env.resend.fromEmail,
       to: params.to,
       subject: params.subject,
       html: params.html,
       text: params.text,
-    });
+    };
+
+    // Add attachments if provided
+    if (params.attachments && params.attachments.length > 0) {
+      emailPayload.attachments = params.attachments;
+    }
+
+    const { data, error } = await resend.emails.send(emailPayload);
 
     if (error) {
       console.error('[Email] Failed to send email:', error);

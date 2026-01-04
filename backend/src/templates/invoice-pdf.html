@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tax Invoice - {{invoiceNumber}}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #333;
+      padding: 20px;
+      background: white;
+    }
+
+    .invoice-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+    }
+
+    .invoice-logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .invoice-logo img {
+      max-width: 200px;
+      height: auto;
+    }
+
+    .company-section {
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #8B1538;
+    }
+
+    .company-section h2 {
+      font-size: 18px;
+      color: #8B1538;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    .company-section p {
+      margin: 3px 0;
+      font-size: 11px;
+    }
+
+    .invoice-header {
+      text-align: center;
+      margin: 25px 0;
+    }
+
+    .invoice-header h1 {
+      font-size: 20px;
+      color: #8B1538;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .invoice-meta-section {
+      margin-bottom: 25px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .meta-item {
+      flex: 1;
+    }
+
+    .meta-item label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 3px;
+      font-size: 11px;
+      color: #666;
+    }
+
+    .meta-item span {
+      display: block;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .bill-to-section {
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-left: 4px solid #8B1538;
+    }
+
+    .bill-to-section h3 {
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: #8B1538;
+      font-weight: bold;
+    }
+
+    .bill-to-section .customer-name {
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .table-wrapper {
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    .invoice-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+
+    .invoice-table thead {
+      background: #8B1538;
+      color: white;
+    }
+
+    .invoice-table th {
+      padding: 10px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: bold;
+      border: 1px solid #8B1538;
+    }
+
+    .invoice-table td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      font-size: 11px;
+    }
+
+    .invoice-table tbody tr {
+      background: white;
+    }
+
+    .invoice-table tbody tr:hover {
+      background: #f9f9f9;
+    }
+
+    .invoice-table .description-col {
+      width: 40%;
+    }
+
+    .invoice-table .sac-col {
+      width: 15%;
+      text-align: center;
+    }
+
+    .invoice-table .qty-col {
+      width: 10%;
+      text-align: center;
+    }
+
+    .invoice-table .rate-col {
+      width: 17.5%;
+      text-align: right;
+    }
+
+    .invoice-table .amount-col {
+      width: 17.5%;
+      text-align: right;
+    }
+
+    .invoice-table .event-name {
+      display: block;
+      font-size: 10px;
+      color: #666;
+      margin-top: 3px;
+    }
+
+    .tax-summary {
+      margin-left: auto;
+      width: 300px;
+      margin-bottom: 25px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 12px;
+    }
+
+    .summary-row.total {
+      background: #8B1538;
+      color: white;
+      font-weight: bold;
+      font-size: 14px;
+      border: none;
+      margin-top: 5px;
+    }
+
+    .amount-words {
+      margin-bottom: 30px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-left: 4px solid #8B1538;
+      font-size: 11px;
+    }
+
+    .amount-words strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #8B1538;
+    }
+
+    .invoice-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #8B1538;
+      text-align: center;
+      font-size: 10px;
+      color: #666;
+    }
+
+    .invoice-footer p {
+      margin: 5px 0;
+    }
+
+    .invoice-footer .thank-you {
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 12px;
+      color: #8B1538;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <!-- Logo -->
+    <div class="invoice-logo">
+      <img src="{{logoBase64}}" alt="Company Logo" />
+    </div>
+
+    <!-- Company Details -->
+    <div class="company-section">
+      <h2>{{companyName}}</h2>
+      <p>{{companyAddress}}</p>
+      <p>{{companyPhone}}</p>
+      <p><strong>GSTIN:</strong> {{companyGstin}}</p>
+    </div>
+
+    <!-- Invoice Header -->
+    <div class="invoice-header">
+      <h1>TAX INVOICE</h1>
+    </div>
+
+    <!-- Invoice Meta -->
+    <div class="invoice-meta-section">
+      <div class="meta-row">
+        <div class="meta-item">
+          <label>Invoice Number</label>
+          <span>{{invoiceNumber}}</span>
+        </div>
+        <div class="meta-item">
+          <label>Invoice Date</label>
+          <span>{{invoiceDate}}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bill To -->
+    <div class="bill-to-section">
+      <h3>Bill To:</h3>
+      <p class="customer-name">{{customerName}}</p>
+    </div>
+
+    <!-- Line Items Table -->
+    <div class="table-wrapper">
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th class="description-col">Description</th>
+            <th class="sac-col">SAC</th>
+            <th class="qty-col">Qty</th>
+            <th class="rate-col">Rate (₹)</th>
+            <th class="amount-col">Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              {{invoiceTypeLabel}}
+              {{eventTitleBlock}}
+            </td>
+            <td class="sac-col">{{sacCode}}</td>
+            <td class="qty-col">1</td>
+            <td class="rate-col">{{subtotal}}</td>
+            <td class="amount-col">{{subtotal}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Tax Summary -->
+    <div class="tax-summary">
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <span>₹{{subtotal}}</span>
+      </div>
+      {{cgstRow}}
+      {{sgstRow}}
+      {{igstRow}}
+      <div class="summary-row total">
+        <span>Total</span>
+        <span>₹{{total}}</span>
+      </div>
+    </div>
+
+    <!-- Amount in Words -->
+    <div class="amount-words">
+      <strong>Amount in Words:</strong>
+      {{amountInWords}}
+    </div>
+
+    <!-- Footer -->
+    <div class="invoice-footer">
+      <p>This is a computer-generated invoice and does not require a signature.</p>
+      <p class="thank-you">Thank you for your purchase!</p>
+    </div>
+  </div>
+</body>
+</html>
