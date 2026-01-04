@@ -200,6 +200,9 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
           wasConnected = state.isConnected;
           this.castState = state;
           
+          // Debug logging for cast button visibility
+          console.log(`[Watch] Cast state: isAvailable=${state.isAvailable}, isConnected=${state.isConnected}, isRecordingMode=${this.isRecordingMode}, isCastingAllowed=${this.isCastingAllowed}, streamStatus=${this.streamStatus}, enableRecordingCasting=${this.castSettings.enableRecordingCasting}`);
+          
           // If just connected and we have a playback URL, load media to Cast (only once)
           if (justConnected && this.playbackUrl) {
             this.loadMediaToCast();

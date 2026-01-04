@@ -62,18 +62,27 @@ export class ChromecastService {
     
     try {
       const castFramework = getCastFramework();
+      const chromeCast = getChromeCast();
+      
       if (!castFramework) {
         console.warn('[Chromecast] Cast framework not available');
+        return;
+      }
+      
+      if (!chromeCast) {
+        console.warn('[Chromecast] Chrome Cast API not available');
         return;
       }
 
       this.castContext = castFramework.CastContext.getInstance();
       
-      // Configure Cast options
-      const chromeCast = getChromeCast();
+      // Configure Cast options - use string values as fallback if enums not available
+      const receiverAppId = chromeCast.media?.DEFAULT_MEDIA_RECEIVER_APP_ID || 'CC1AD845';
+      const autoJoinPolicy = chromeCast.AutoJoinPolicy?.ORIGIN_SCOPED || 'origin_scoped';
+      
       this.castContext.setOptions({
-        receiverApplicationId: chromeCast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID,
-        autoJoinPolicy: chromeCast?.AutoJoinPolicy?.ORIGIN_SCOPED
+        receiverApplicationId: receiverAppId,
+        autoJoinPolicy: autoJoinPolicy
       });
 
       // Create remote player and controller
