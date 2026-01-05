@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { S3Client, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { pool } from '../db/pool';
 import { requireAuth } from '../middleware/auth';
 import { env } from '../config/env';
@@ -31,12 +31,50 @@ interface RecordingSession {
   timestamp: string; // YYYY/MM/DD/HH/MM format
   path: string;
   dateTime: Date;
+  isValid?: boolean; // Whether the session has valid segment files
+}
+
+/**
+ * Validate if a recording session has actual playable content.
+ * Checks for the presence of segment files (.ts) in the session's HLS directory.
+ * A session with only master.m3u8 but no segments is considered invalid.
+ */
+async function validateSession(sessionPath: string): Promise<boolean> {
+  try {
+    // Get the HLS directory path (remove master.m3u8 from the path)
+    const hlsDir = sessionPath.replace(/master\.m3u8$/, '');
+
+    // List objects in the HLS directory to check for segment files
+    const listResult = await s3Client.send(new ListObjectsV2Command({
+      Bucket: env.s3.recordingsBucket,
+      Prefix: hlsDir,
+      MaxKeys: 10, // We just need to find a few segments to confirm validity
+    }));
+
+    if (!listResult.Contents || listResult.Contents.length === 0) {
+      return false;
+    }
+
+    // Check for .ts segment files or variant playlists
+    const hasSegments = listResult.Contents.some(obj => {
+      const key = obj.Key || '';
+      // Valid session should have .ts segments or variant playlist files
+      return key.endsWith('.ts') ||
+             (key.endsWith('.m3u8') && !key.endsWith('master.m3u8'));
+    });
+
+    return hasSegments;
+  } catch (error) {
+    console.error(`[Recordings] Error validating session ${sessionPath}:`, error);
+    return false;
+  }
 }
 
 /**
  * Find all recording sessions for a channel in S3.
  * IVS stores recordings in: ivs/v1/{accountId}/{channelId}/{YYYY}/{MM}/{DD}/{HH}/{MM}/{sessionId}/media/hls/
  * Returns sessions sorted chronologically (oldest first for sequential playback).
+ * Invalid sessions (without segment files) are filtered out.
  */
 async function findAllRecordingSessions(channelArn: string): Promise<RecordingSession[]> {
   const arnParts = channelArn.split(':');
@@ -116,8 +154,25 @@ async function findAllRecordingSessions(channelArn: string): Promise<RecordingSe
     
     // Sort by dateTime (oldest first for sequential playback)
     sessions.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
-    
-    return sessions;
+
+    // Validate each session to ensure it has playable content
+    console.log(`[Recordings] Found ${sessions.length} sessions, validating...`);
+
+    const validatedSessions: RecordingSession[] = [];
+    for (const session of sessions) {
+      const isValid = await validateSession(session.path);
+      if (isValid) {
+        session.isValid = true;
+        validatedSessions.push(session);
+        console.log(`[Recordings] Session ${session.sessionId} (${session.timestamp}) is valid`);
+      } else {
+        console.log(`[Recordings] Session ${session.sessionId} (${session.timestamp}) is INVALID - skipping (no segment files found)`);
+      }
+    }
+
+    console.log(`[Recordings] ${validatedSessions.length} of ${sessions.length} sessions are valid`);
+
+    return validatedSessions;
   } catch (error) {
     console.error('[Recordings] Error finding sessions:', error);
     return [];

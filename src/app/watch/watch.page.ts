@@ -119,6 +119,8 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
   recordingSessions: { index: number; sessionId: string; timestamp: string; dateTime: string; playbackUrl: string; expiresAt: string }[] = [];
   currentSessionIndex = 0;
   totalSessions = 0;
+  private sessionRetryCount = 0;
+  private readonly MAX_SESSION_RETRIES = 1; // Max retries per session before skipping
 
   private isLoggedIn = false;
   private isAdmin = false;
@@ -426,13 +428,14 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
    * Initialize recording playback mode.
    * Fetches signed CloudFront URLs for all sessions and sets up HLS player.
    * Supports sequential playback of multiple recording sessions.
+   * Automatically skips invalid sessions and plays the next valid one.
    */
   private async initRecordingPlayback(): Promise<void> {
     if (!this.eventId) return;
 
     try {
       const recording = await this.recordingsApi.getPlaybackUrl(this.eventId);
-      
+
       // Store all sessions for sequential playback
       if (recording.sessions && recording.sessions.length > 0) {
         this.recordingSessions = recording.sessions;
@@ -452,10 +455,13 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
         this.currentSessionIndex = 0;
       }
 
+      console.log(`[Watch] Found ${this.totalSessions} recording session(s)`);
+
       this.playbackUrl = this.recordingSessions[0].playbackUrl;
       this.recordingExpiresAt = recording.recordingExpiresAt;
       this.recordingUrlExpiresAt = this.recordingSessions[0].expiresAt;
       this.streamStatus = 'recording';
+      this.sessionRetryCount = 0;
 
       // Platform-specific player initialization for recordings
       if (this.useNativePlayer) {
@@ -465,16 +471,16 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
         this.nativePlayerInitialized = true;
         // Player starts in fullscreen landscape mode automatically
         console.log('[Watch] Native player initialized for recording in fullscreen mode');
-        
+
         // Show RECORDING badge on native player
         await this.ivsVideoPlayer.showBadge('RECORDING', false);
       } else {
         // Use HTML5 IVS player for web
-        console.log('[Watch] Initializing IVS web player for recording');
+        console.log(`[Watch] Initializing IVS web player for recording session 1/${this.totalSessions}`);
         if (!this.videoElRef?.nativeElement) {
           throw new Error('Video element not available');
         }
-        
+
         this.player = await this.ivsPlayer.createAndAttachPlayer(
           this.videoElRef.nativeElement,
           this.playbackUrl
@@ -485,12 +491,23 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
         this.videoElRef.nativeElement.muted = false;
         this.videoElRef.nativeElement.volume = 1;
 
-        await this.player.play();
-        console.log('[Watch] IVS web player initialized for recording');
+        try {
+          await this.player.play();
+          console.log('[Watch] IVS web player initialized for recording');
+        } catch (playError) {
+          console.error('[Watch] Failed to play first session:', playError);
+          // If first session fails to play, try the next one
+          if (this.totalSessions > 1) {
+            console.log('[Watch] First session failed, trying next session...');
+            await this.playNextSession();
+          } else {
+            throw playError; // No more sessions, rethrow
+          }
+        }
       }
 
       // Schedule URL refresh before it expires (5 minutes before)
-      this.scheduleRecordingUrlRefresh(this.recordingSessions[0].expiresAt);
+      this.scheduleRecordingUrlRefresh(this.recordingSessions[this.currentSessionIndex].expiresAt);
 
       // Load comments
       this.comments = await this.eventsApi.listComments(this.eventId);
@@ -498,12 +515,12 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
 
     } catch (e: any) {
       this.streamStatus = 'error';
-      
+
       // Handle specific error cases
       if (e?.status === 410) {
         this.errorMessage = 'Recording has expired. Recordings are only available for 3 days after the event.';
       } else if (e?.status === 404) {
-        this.errorMessage = 'Recording not found. The recording may not be available yet.';
+        this.errorMessage = 'Recording not found. The recording may not be available yet or was not recorded.';
       } else if (e?.status === 403) {
         this.errorMessage = 'You do not have access to this recording. Please purchase a ticket.';
       } else {
@@ -529,6 +546,7 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
 
   /**
    * Play the next recording session if available.
+   * Automatically skips invalid sessions and tries the next one.
    */
   async playNextSession(): Promise<void> {
     if (this.currentSessionIndex >= this.totalSessions - 1) {
@@ -537,8 +555,11 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     }
 
     this.currentSessionIndex++;
+    this.sessionRetryCount = 0; // Reset retry count for new session
     const nextSession = this.recordingSessions[this.currentSessionIndex];
-    
+
+    console.log(`[Watch] Playing session ${this.currentSessionIndex + 1}/${this.totalSessions} (${nextSession.sessionId})`);
+
     try {
       // Load the next session URL
       this.playbackUrl = nextSession.playbackUrl;
@@ -554,19 +575,30 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
       this.scheduleRecordingUrlRefresh(nextSession.expiresAt);
     } catch (e: any) {
       console.error('[Watch] Error playing next session:', e);
-      this.errorMessage = 'Failed to play next recording segment';
+      // If this session fails to load, try the next one
+      if (this.currentSessionIndex < this.totalSessions - 1) {
+        console.log('[Watch] Session failed to load, trying next session...');
+        await this.playNextSession();
+      } else {
+        this.errorMessage = 'Failed to play recording. No more sessions available.';
+        this.streamStatus = 'error';
+      }
     }
   }
 
   /**
    * Play a specific session by index.
+   * If the session fails, automatically tries the next available session.
    */
   async playSession(index: number): Promise<void> {
     if (index < 0 || index >= this.totalSessions) return;
 
     this.currentSessionIndex = index;
+    this.sessionRetryCount = 0; // Reset retry count
     const session = this.recordingSessions[index];
-    
+
+    console.log(`[Watch] Playing session ${index + 1}/${this.totalSessions} (${session.sessionId})`);
+
     try {
       this.playbackUrl = session.playbackUrl;
       this.recordingUrlExpiresAt = session.expiresAt;
@@ -579,6 +611,13 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
       this.scheduleRecordingUrlRefresh(session.expiresAt);
     } catch (e: any) {
       console.error('[Watch] Error playing session:', e);
+      // If this session fails, try the next one
+      if (this.currentSessionIndex < this.totalSessions - 1) {
+        console.log('[Watch] Session failed, trying next session...');
+        await this.playNextSession();
+      } else {
+        this.errorMessage = 'Failed to play this recording segment.';
+      }
     }
   }
 
@@ -972,10 +1011,53 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
 
       this.player.addEventListener(PlayerEventType.ERROR, (err: any) => {
         this.ngZone.run(() => {
-          this.streamStatus = 'error';
-          this.errorMessage = this.getErrorMessage(err);
+          console.error('[Watch] Player error:', err);
+
+          // For recordings, try to skip to next session on error
+          if (this.isRecordingMode && this.totalSessions > 1) {
+            this.handleSessionPlaybackError(err);
+          } else {
+            this.streamStatus = 'error';
+            this.errorMessage = this.getErrorMessage(err);
+          }
         });
       });
+    }
+  }
+
+  /**
+   * Handle playback errors for recording sessions.
+   * Attempts to retry or skip to next session.
+   */
+  private async handleSessionPlaybackError(error: any): Promise<void> {
+    console.error(`[Watch] Session ${this.currentSessionIndex + 1}/${this.totalSessions} playback error:`, error);
+
+    // Check if we should retry this session
+    if (this.sessionRetryCount < this.MAX_SESSION_RETRIES) {
+      this.sessionRetryCount++;
+      console.log(`[Watch] Retrying session ${this.currentSessionIndex + 1} (attempt ${this.sessionRetryCount})`);
+
+      try {
+        const currentSession = this.recordingSessions[this.currentSessionIndex];
+        if (this.player && currentSession) {
+          this.player.load(currentSession.playbackUrl);
+          await this.player.play();
+          return; // Retry successful
+        }
+      } catch (retryError) {
+        console.error('[Watch] Retry failed:', retryError);
+      }
+    }
+
+    // Retry exhausted, try next session
+    if (this.currentSessionIndex < this.totalSessions - 1) {
+      console.log(`[Watch] Skipping to next session (${this.currentSessionIndex + 2}/${this.totalSessions})`);
+      this.sessionRetryCount = 0; // Reset retry count for next session
+      await this.playNextSession();
+    } else {
+      // No more sessions to try
+      this.streamStatus = 'error';
+      this.errorMessage = 'Unable to play recording. The recording may be unavailable.';
     }
   }
 
