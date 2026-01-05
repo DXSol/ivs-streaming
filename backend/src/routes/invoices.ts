@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { pool } from '../db/pool';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { env } from '../config/env';
+import { sendInvoiceEmail } from '../services/invoice-email.service';
 
 const router = Router();
 
@@ -96,7 +97,24 @@ export async function createInvoice(params: {
       companyName, companyAddress, companyPhone, companyGstin, sacCode
     ]
   );
-  
+
+  const invoiceId = rows[0].id;
+  const invoiceNum = rows[0].invoice_number;
+
+  // Send invoice email (non-blocking - don't wait for email to complete)
+  // This ensures payment confirmation is not delayed by email sending
+  sendInvoiceEmail(invoiceId)
+    .then(success => {
+      if (success) {
+        console.log(`[createInvoice] Invoice email sent successfully for ${invoiceNum}`);
+      } else {
+        console.error(`[createInvoice] Failed to send invoice email for ${invoiceNum}`);
+      }
+    })
+    .catch(err => {
+      console.error(`[createInvoice] Error sending invoice email for ${invoiceNum}:`, err);
+    });
+
   return rows[0];
 }
 

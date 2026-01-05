@@ -107,4 +107,10 @@ export const env = {
     enableLiveCasting: process.env.CHROMECAST_ENABLE_LIVE === 'true',
     enableRecordingCasting: process.env.CHROMECAST_ENABLE_RECORDING !== 'false', // Default true for recordings
   },
+
+  invoices: {
+    recipientEmails: process.env.INVOICE_RECIPIENT_EMAILS
+      ? process.env.INVOICE_RECIPIENT_EMAILS.split(',').map(email => email.trim()).filter(email => email.length > 0)
+      : [],
+  },
 };
