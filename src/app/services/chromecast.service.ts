@@ -15,6 +15,11 @@ export interface CastState {
   playerState: 'idle' | 'playing' | 'paused' | 'buffering';
 }
 
+export interface CastDevice {
+  id: string;
+  name: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -227,10 +232,26 @@ export class ChromecastService {
   }
 
   /**
+   * Check if Cast SDK is initialized
+   */
+  get isInitialized(): boolean {
+    return this.sdkInitialized && this.castContext !== null;
+  }
+
+  /**
    * Check if Chromecast is available (devices found)
    */
   get isAvailable(): boolean {
     return this.castStateSubject.value.isAvailable;
+  }
+
+  /**
+   * Force refresh of cast state
+   */
+  refreshCastState(): void {
+    if (this.castContext) {
+      this.updateCastState();
+    }
   }
 
   /**
@@ -262,6 +283,140 @@ export class ChromecastService {
       if (error?.code !== 'cancel') {
         console.error('[Chromecast] Failed to open cast dialog:', error);
       }
+    }
+  }
+
+  /**
+   * Start device discovery and return available devices
+   * This initiates a scan for available cast devices
+   */
+  async discoverDevices(timeoutMs: number = 60000): Promise<CastDevice[]> {
+    if (!this.castContext) {
+      console.warn('[Chromecast] Cast context not initialized');
+      return [];
+    }
+
+    return new Promise((resolve) => {
+      let resolved = false;
+      const checkInterval = 500; // Check every 500ms
+      let elapsedTime = 0;
+
+      // Listen for cast state changes to detect available devices
+      const castFramework = getCastFramework();
+      if (!castFramework) {
+        console.warn('[Chromecast] Cast framework not available');
+        resolve([]);
+        return;
+      }
+
+      console.log('[Chromecast] Starting device discovery...');
+
+      // Function to check cast state
+      const checkCastState = () => {
+        if (resolved) return;
+
+        try {
+          const castState = this.castContext.getCastState();
+          console.log('[Chromecast] Current cast state:', castState, 'NO_DEVICES:', castFramework.CastState.NO_DEVICES_AVAILABLE);
+
+          // Check if devices are available
+          if (castState !== castFramework.CastState.NO_DEVICES_AVAILABLE) {
+            resolved = true;
+            clearInterval(pollInterval);
+            clearTimeout(timeoutHandle);
+
+            // Remove event listener if it was added
+            if (stateListener) {
+              this.castContext.removeEventListener(
+                castFramework.CastContextEventType.CAST_STATE_CHANGED,
+                stateListener
+              );
+            }
+
+            console.log('[Chromecast] Devices found! Cast state:', castState);
+            resolve([{ id: 'available', name: 'Cast devices available' }]);
+            return;
+          }
+
+          elapsedTime += checkInterval;
+          console.log('[Chromecast] No devices yet, elapsed time:', elapsedTime, 'ms');
+
+        } catch (error) {
+          console.error('[Chromecast] Error checking cast state:', error);
+        }
+      };
+
+      // Set up polling to check cast state periodically
+      const pollInterval = setInterval(checkCastState, checkInterval);
+
+      // Set up listener for cast state changes (backup mechanism)
+      const stateListener = (event: any) => {
+        if (resolved) return;
+
+        console.log('[Chromecast] Cast state changed event:', event.castState);
+        const newCastState = event.castState;
+
+        if (newCastState !== castFramework.CastState.NO_DEVICES_AVAILABLE) {
+          resolved = true;
+          clearInterval(pollInterval);
+          clearTimeout(timeoutHandle);
+
+          this.castContext.removeEventListener(
+            castFramework.CastContextEventType.CAST_STATE_CHANGED,
+            stateListener
+          );
+
+          console.log('[Chromecast] Devices discovered via event');
+          resolve([{ id: 'available', name: 'Cast devices available' }]);
+        }
+      };
+
+      this.castContext.addEventListener(
+        castFramework.CastContextEventType.CAST_STATE_CHANGED,
+        stateListener
+      );
+
+      // Set up timeout
+      const timeoutHandle = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          clearInterval(pollInterval);
+
+          this.castContext.removeEventListener(
+            castFramework.CastContextEventType.CAST_STATE_CHANGED,
+            stateListener
+          );
+
+          console.log('[Chromecast] Device discovery timeout - no devices found');
+          resolve([]);
+        }
+      }, timeoutMs);
+
+      // Do initial check immediately
+      checkCastState();
+    });
+  }
+
+  /**
+   * Request session - opens the native Cast dialog
+   * This will show the list of available devices to the user
+   */
+  async requestSession(): Promise<boolean> {
+    if (!this.castContext) {
+      console.warn('[Chromecast] Cast context not initialized');
+      return false;
+    }
+
+    try {
+      await this.castContext.requestSession();
+      return true;
+    } catch (error: any) {
+      if (error?.code === 'cancel') {
+        console.log('[Chromecast] User cancelled device selection');
+        return false;
+      }
+      console.error('[Chromecast] Failed to request session:', error);
+      return false;
     }
   }
 
