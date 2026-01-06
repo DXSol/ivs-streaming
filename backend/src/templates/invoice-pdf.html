@@ -187,8 +187,7 @@
       font-weight: bold;
     }
 
-    .invoice-table .qty-col,
-    .invoice-table .per-col {
+    .invoice-table .qty-col {
       width: 10%;
       text-align: center;
     }
@@ -445,7 +444,6 @@
           <th class="hsn-col">HSN/SAC</th>
           <th class="qty-col">Quantity</th>
           <th class="rate-col">Rate</th>
-          <th class="per-col">per</th>
           <th class="amount-col">Amount</th>
         </tr>
       </thead>
@@ -457,27 +455,26 @@
             {{eventTitleBlock}}
           </td>
           <td class="hsn-col">{{sacCode}}</td>
-          <td class="qty-col"></td>
-          <td class="rate-col"></td>
-          <td class="per-col"></td>
+          <td class="qty-col">1</td>
+          <td class="rate-col">{{subtotal}}</td>
           <td class="amount-col">{{subtotal}}</td>
         </tr>
 
         <!-- GST Rows -->
         <tr class="tax-row">
-          <td colspan="6" class="tax-label-cell">
+          <td colspan="5" class="tax-label-cell">
             <span class="tax-label-right">CGST 9%</span>
           </td>
           <td class="amount-col">{{cgst}}</td>
         </tr>
         <tr class="tax-row">
-          <td colspan="6" class="tax-label-cell">
+          <td colspan="5" class="tax-label-cell">
             <span class="tax-label-right">SGST 9%</span>
           </td>
           <td class="amount-col">{{sgst}}</td>
         </tr>
         <tr class="tax-row">
-          <td colspan="6" class="tax-label-cell">
+          <td colspan="5" class="tax-label-cell">
             <span class="tax-label-indent">Less :</span>
             <span class="tax-label-right">Rounded Off +/-</span>
           </td>
@@ -485,17 +482,17 @@
         </tr>
 
         <!-- Empty rows for spacing -->
-        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
 
         <!-- Total Row -->
         <tr class="total-row">
-          <td colspan="6" class="total-label">Total</td>
+          <td colspan="5" class="total-label">Total</td>
           <td class="amount-col total-amount"><strong>{{total}} ₹</strong></td>
         </tr>
       </tbody>

@@ -197,10 +197,6 @@
         width: 12%;
       }
 
-      &.per-col {
-        width: 8%;
-      }
-
       &.amount-col {
         width: 20%;
       }
@@ -248,8 +244,7 @@
         font-weight: bold;
       }
 
-      &.qty-col,
-      &.per-col {
+      &.qty-col {
         text-align: center;
       }
 

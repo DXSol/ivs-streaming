@@ -109,7 +109,6 @@
               <th class="hsn-col">HSN/SAC</th>
               <th class="qty-col">Quantity</th>
               <th class="rate-col">Rate</th>
-              <th class="per-col">per</th>
               <th class="amount-col">Amount</th>
             </tr>
           </thead>
@@ -121,27 +120,26 @@
                 <div *ngIf="invoice.event_title" class="event-date">{{ formatDate(invoice.invoice_date) }} Concert</div>
               </td>
               <td class="hsn-col">{{ invoice.sac_code || '999629' }}</td>
-              <td class="qty-col"></td>
-              <td class="rate-col"></td>
-              <td class="per-col"></td>
+              <td class="qty-col">1</td>
+              <td class="rate-col">{{ (invoice.subtotal_paise / 100).toFixed(2) }}</td>
               <td class="amount-col">{{ (invoice.subtotal_paise / 100).toFixed(2) }}</td>
             </tr>
 
             <!-- GST Rows within table -->
             <tr class="tax-row">
-              <td colspan="6" class="tax-label-cell">
+              <td colspan="5" class="tax-label-cell">
                 <span class="tax-label-right">CGST 9%</span>
               </td>
               <td class="amount-col">{{ (invoice.cgst_paise / 100).toFixed(2) }}</td>
             </tr>
             <tr class="tax-row">
-              <td colspan="6" class="tax-label-cell">
+              <td colspan="5" class="tax-label-cell">
                 <span class="tax-label-right">SGST 9%</span>
               </td>
               <td class="amount-col">{{ (invoice.sgst_paise / 100).toFixed(2) }}</td>
             </tr>
             <tr class="tax-row">
-              <td colspan="6" class="tax-label-cell">
+              <td colspan="5" class="tax-label-cell">
                 <span class="tax-label-indent">Less :</span>
                 <span class="tax-label-right">Rounded Off +/-</span>
               </td>
@@ -149,17 +147,17 @@
             </tr>
 
             <!-- Empty rows for spacing -->
-            <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-            <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-            <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-            <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-            <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-            <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
-            <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
 
             <!-- Total Row -->
             <tr class="total-row">
-              <td colspan="6" class="total-label">Total</td>
+              <td colspan="5" class="total-label">Total</td>
               <td class="amount-col total-amount"><strong>{{ (invoice.total_paise / 100).toFixed(2) }} ₹</strong></td>
             </tr>
           </tbody>
