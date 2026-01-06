@@ -203,4 +203,6 @@ export interface Invoice {
   company_bank_branch?: string;
   invoice_date: string;
   created_at: string;
+  razorpay_payment_id?: string;
+  payment_date?: string;
 }

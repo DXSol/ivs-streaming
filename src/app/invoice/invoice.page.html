@@ -72,15 +72,11 @@
             </tr>
             <tr>
               <td class="meta-label">Reference No. & Date.</td>
-              <td class="meta-value">Other References</td>
-            </tr>
-            <tr>
-              <td class="meta-label">Buyer's Order No.</td>
-              <td class="meta-value"></td>
-            </tr>
-            <tr>
-              <td class="meta-label">Dated</td>
-              <td class="meta-value"></td>
+              <td class="meta-value">
+                <span *ngIf="invoice.razorpay_payment_id">{{ invoice.razorpay_payment_id }}</span>
+                <span *ngIf="!invoice.razorpay_payment_id">-</span>
+                <span *ngIf="invoice.payment_date"> / {{ formatDate(invoice.payment_date) }}</span>
+              </td>
             </tr>
           </table>
         </div>
