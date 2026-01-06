@@ -100,8 +100,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let invoice of invoices">
-              <td class="invoice-number">{{ invoice.invoice_number }}</td>
+            <tr *ngFor="let invoice of invoices" class="invoice-row" (click)="viewInvoice(invoice.id)">
+              <td class="invoice-number">
+                <a [routerLink]="['/invoice', invoice.id]" [queryParams]="{returnUrl: '/admin/invoice-statement'}" (click)="$event.stopPropagation()">
+                  {{ invoice.invoice_number }}
+                </a>
+              </td>
               <td>{{ formatDate(invoice.invoice_date) }}</td>
               <td>{{ invoice.customer_name || '-' }}</td>
               <td>{{ getEventName(invoice) }}</td>

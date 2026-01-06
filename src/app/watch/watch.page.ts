@@ -175,12 +175,15 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     this.useNativePlayer = Capacitor.isNativePlatform();
     console.log('[Watch] Platform detection - useNativePlayer:', this.useNativePlayer, 'Platform:', Capacitor.getPlatform());
     
-    // Listen for app resume (coming back from background)
-    this.resumeSubscription = this.platform.resume.subscribe(() => {
-      this.ngZone.run(() => {
-        this.onAppResume();
+    // Listen for app resume (coming back from background) - only for native apps
+    // Web browsers don't need this as they handle video state properly
+    if (this.useNativePlayer) {
+      this.resumeSubscription = this.platform.resume.subscribe(() => {
+        this.ngZone.run(() => {
+          this.onAppResume();
+        });
       });
-    });
+    }
     
     // Handle hardware back button for native player
     if (this.useNativePlayer) {

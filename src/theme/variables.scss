@@ -75,4 +75,34 @@
   --space-lg: 24px;
   --space-xl: 32px;
   --space-2xl: 48px;
+
+  // Form input colors - adapts to light/dark mode
+  --ion-text-color: #1F2937;
+  --ion-background-color: #FEFBF6;
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  :root {
+    // Dark mode background
+    --theme-bg-gradient: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 50%, #0a0a0a 100%);
+    --theme-card-bg: #1f1f1f;
+    --theme-card-border: rgba(255, 255, 255, 0.1);
+    --theme-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+    --theme-card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+
+    // Dark mode text colors
+    --theme-text-primary: #F3F4F6;
+    --theme-text-secondary: #D1D5DB;
+    --theme-text-muted: #9CA3AF;
+    --theme-divider: rgba(255, 255, 255, 0.1);
+
+    // Form input colors for dark mode
+    --ion-text-color: #F3F4F6;
+    --ion-background-color: #1a1a1a;
+
+    // Keep accent colors vibrant in dark mode
+    --theme-accent-maroon: #BE185D;
+    --theme-accent-gold: #FBBF24;
+  }
 }

@@ -201,7 +201,20 @@ export async function ensureSchema() {
 
   // Add company_phone column if it doesn't exist
   await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_phone TEXT;");
-  
+
   // Add sac_code column if it doesn't exist
   await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sac_code TEXT;");
+
+  // Add additional company fields for detailed invoices
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_cin TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_pan TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_email TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_registration_number TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_udyam_number TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_state_code TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_state_name TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_bank_name TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_bank_account_number TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_bank_ifsc_code TEXT;");
+  await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_bank_branch TEXT;");
 }

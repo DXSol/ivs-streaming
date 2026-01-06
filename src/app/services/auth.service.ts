@@ -177,6 +177,8 @@ export interface Invoice {
   event_id?: string;
   event_title?: string;
   customer_name: string;
+  customer_email?: string;
+  customer_address?: string;
   subtotal_paise: number;
   cgst_paise: number;
   sgst_paise: number;
@@ -188,6 +190,17 @@ export interface Invoice {
   company_phone?: string;
   company_gstin: string;
   sac_code?: string;
+  company_cin?: string;
+  company_pan?: string;
+  company_email?: string;
+  company_registration_number?: string;
+  company_udyam_number?: string;
+  company_state_code?: string;
+  company_state_name?: string;
+  company_bank_name?: string;
+  company_bank_account_number?: string;
+  company_bank_ifsc_code?: string;
+  company_bank_branch?: string;
   invoice_date: string;
   created_at: string;
 }

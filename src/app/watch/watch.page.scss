@@ -47,9 +47,15 @@
   aspect-ratio: 16 / 9;
   border-radius: var(--app-radius-sm);
   z-index: 1;
+  pointer-events: none;
 
   @media (min-width: 768px) {
     border-radius: var(--app-radius);
+  }
+
+  // Allow pointer events on interactive children
+  * {
+    pointer-events: auto;
   }
 }
 // Native player anchor - reserves space for native player overlay
@@ -74,12 +80,38 @@
   height: 100%;
   object-fit: contain;
   z-index: 5;
+  pointer-events: auto;
 }
 
 
-// Ensure video controls are clickable when video is playing/paused
+// Ensure video controls are clickable and accessible across all devices
+video::-webkit-media-controls-panel {
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
 video::-webkit-media-controls {
-  z-index: 10;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
+video::-webkit-media-controls-play-button {
+  pointer-events: auto !important;
+}
+
+video::-webkit-media-controls-timeline {
+  pointer-events: auto !important;
+}
+
+// iOS Safari specific - ensure controls work
+video[controls] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+// Ensure fullscreen controls work on iOS
+video::-webkit-media-controls-fullscreen-button {
+  pointer-events: auto !important;
 }
 
 .overlay {
@@ -93,6 +125,8 @@ video::-webkit-media-controls {
   font-size: 15px;
   text-align: center;
   padding: 20px;
+  z-index: 20;
+  pointer-events: auto;
 }
 
 .overlay-content {
@@ -171,6 +205,7 @@ video::-webkit-media-controls {
   align-items: center;
   gap: 12px;
   z-index: 10;
+  pointer-events: none;
 }
 
 .live-badge {
@@ -229,6 +264,7 @@ video::-webkit-media-controls {
   justify-content: center;
   z-index: 15;
   transition: all 0.2s ease;
+  pointer-events: auto;
 
   &:hover {
     background: rgba(0, 0, 0, 0.8);

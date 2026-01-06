@@ -203,7 +203,7 @@ router.get('/:eventId/playback-url', requireAuth, async (req, res) => {
   try {
     // 1. Fetch event details
     const eventResult = await pool.query(
-      `SELECT id, title, ends_at, event_type, ivs_channel_arn 
+      `SELECT id, title, starts_at, ends_at, event_type, ivs_channel_arn
        FROM events WHERE id = $1`,
       [eventId]
     );
@@ -239,29 +239,34 @@ router.get('/:eventId/playback-url', requireAuth, async (req, res) => {
     }
 
     // 5. Validate user has access (paid ticket or season ticket)
-    const startsAt = new Date(event.starts_at);
-    
-    // Check for individual ticket
-    const ticketResult = await pool.query(
-      `SELECT status FROM tickets WHERE user_id = $1 AND event_id = $2 AND status = 'paid'`,
-      [user.id, eventId]
-    );
+    // Admin has unrestricted access to all recordings
+    let hasValidTicket = user.role === 'admin';
 
-    let hasValidTicket = ticketResult.rows.length > 0;
-
-    // If no individual ticket, check for season ticket
     if (!hasValidTicket) {
-      const seasonTicketResult = await pool.query(
-        `SELECT status, purchased_at FROM season_tickets 
-         WHERE user_id = $1 AND status = 'paid'`,
-        [user.id]
+      const startsAt = new Date(event.starts_at);
+
+      // Check for individual ticket
+      const ticketResult = await pool.query(
+        `SELECT status FROM tickets WHERE user_id = $1 AND event_id = $2 AND status = 'paid'`,
+        [user.id, eventId]
       );
-      const seasonTicket = seasonTicketResult.rows[0];
-      if (seasonTicket) {
-        // Season ticket grants access to events that start on or after purchase date
-        const purchasedAt = new Date(seasonTicket.purchased_at);
-        if (startsAt >= purchasedAt) {
-          hasValidTicket = true;
+
+      hasValidTicket = ticketResult.rows.length > 0;
+
+      // If no individual ticket, check for season ticket
+      if (!hasValidTicket) {
+        const seasonTicketResult = await pool.query(
+          `SELECT status, purchased_at FROM season_tickets
+           WHERE user_id = $1 AND status = 'paid'`,
+          [user.id]
+        );
+        const seasonTicket = seasonTicketResult.rows[0];
+        if (seasonTicket) {
+          // Season ticket grants access to events that start on or after purchase date
+          const purchasedAt = new Date(seasonTicket.purchased_at);
+          if (startsAt >= purchasedAt) {
+            hasValidTicket = true;
+          }
         }
       }
     }
