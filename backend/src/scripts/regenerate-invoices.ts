@@ -119,7 +119,7 @@ async function main() {
           cgstPaise,
           sgstPaise,
           0, // IGST = 0 for intra-state
-          finalTotalPaise,
+          totalPaise, // Use actual payment amount, not calculated sum
           payment.currency || 'INR',
           companyDetails.name,
           companyDetails.address,

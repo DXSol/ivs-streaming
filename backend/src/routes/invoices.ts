@@ -119,7 +119,7 @@ export async function createInvoice(params: {
     [
       invoiceNumber, userId, paymentId, invoiceType, eventId || null,
       user?.name || 'Customer', user?.email || '', user?.address || '',
-      subtotalPaise, cgstPaise, sgstPaise, 0, finalTotalPaise, currency,
+      subtotalPaise, cgstPaise, sgstPaise, 0, totalPaise, currency,
       companyName, companyAddress, companyPhone, companyGstin, sacCode,
       companyCin, companyPan, companyEmail, companyRegistrationNumber, companyUdyamNumber,
       companyStateCode, companyStateName, companyBankName, companyBankAccountNumber,
@@ -196,7 +196,8 @@ router.get('/:id/pdf', requireAuth, async (req: Request, res: Response) => {
         i.company_state_code, i.company_state_name, i.company_bank_name, i.company_bank_account_number,
         i.company_bank_ifsc_code, i.company_bank_branch,
         e.title as event_title,
-        p.provider_payment_id as razorpay_payment_id
+        p.provider_payment_id as razorpay_payment_id,
+        p.created_at as payment_date
       FROM invoices i
       LEFT JOIN events e ON i.event_id = e.id
       LEFT JOIN payments p ON i.payment_id = p.id
@@ -219,7 +220,7 @@ router.get('/:id/pdf', requireAuth, async (req: Request, res: Response) => {
     const invoice = rows[0];
 
     // Generate PDF using pdf.service
-    const { generateInvoicePDF, InvoiceData } = await import('../services/pdf.service');
+    const { generateInvoicePDF } = await import('../services/pdf.service');
 
     const invoiceData: InvoiceData = {
       invoiceNumber: invoice.invoice_number,
@@ -237,10 +238,22 @@ router.get('/:id/pdf', requireAuth, async (req: Request, res: Response) => {
       currency: invoice.currency,
       companyName: invoice.company_name,
       companyAddress: invoice.company_address,
-      companyPhone: invoice.company_phone || undefined,
+      companyPhone: invoice.company_phone || '',
       companyGstin: invoice.company_gstin,
       sacCode: invoice.sac_code,
+      companyCin: invoice.company_cin || undefined,
+      companyPan: invoice.company_pan || undefined,
+      companyEmail: invoice.company_email || undefined,
+      companyRegistrationNumber: invoice.company_registration_number || undefined,
+      companyUdyamNumber: invoice.company_udyam_number || undefined,
+      companyStateCode: invoice.company_state_code || undefined,
+      companyStateName: invoice.company_state_name || undefined,
+      companyBankName: invoice.company_bank_name || undefined,
+      companyBankAccountNumber: invoice.company_bank_account_number || undefined,
+      companyBankIfscCode: invoice.company_bank_ifsc_code || undefined,
+      companyBankBranch: invoice.company_bank_branch || undefined,
       razorpayPaymentId: invoice.razorpay_payment_id || undefined,
+      paymentDate: invoice.payment_date ? new Date(invoice.payment_date) : undefined,
     };
 
     const pdfBuffer = await generateInvoicePDF(invoiceData);
@@ -274,9 +287,12 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
         i.company_state_code, i.company_state_name, i.company_bank_name, i.company_bank_account_number,
         i.company_bank_ifsc_code, i.company_bank_branch,
         i.invoice_date, i.created_at,
-        e.title as event_title
+        e.title as event_title,
+        p.provider_payment_id as razorpay_payment_id,
+        p.created_at as payment_date
       FROM invoices i
       LEFT JOIN events e ON i.event_id = e.id
+      LEFT JOIN payments p ON i.payment_id = p.id
       WHERE i.id = $1`;
 
     const params: any[] = [invoiceId];

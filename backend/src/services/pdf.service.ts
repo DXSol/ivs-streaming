@@ -21,7 +21,19 @@ export interface InvoiceData {
   companyPhone: string;
   companyGstin: string;
   sacCode: string;
+  companyCin?: string;
+  companyPan?: string;
+  companyEmail?: string;
+  companyRegistrationNumber?: string;
+  companyUdyamNumber?: string;
+  companyStateCode?: string;
+  companyStateName?: string;
+  companyBankName?: string;
+  companyBankAccountNumber?: string;
+  companyBankIfscCode?: string;
+  companyBankBranch?: string;
   razorpayPaymentId?: string;
+  paymentDate?: Date;
 }
 
 // Singleton browser instance for better performance
@@ -116,6 +128,16 @@ function getInvoiceTypeLabel(type: 'event_ticket' | 'season_ticket'): string {
   return type === 'season_ticket' ? 'Season Ticket' : 'Event Ticket';
 }
 
+function getRoundingAdjustment(invoiceData: InvoiceData): string {
+  const calculatedTotal = invoiceData.subtotalPaise + invoiceData.cgstPaise + invoiceData.sgstPaise;
+  const adjustment = invoiceData.totalPaise - calculatedTotal;
+  const adjustmentRupees = adjustment / 100;
+
+  return adjustmentRupees >= 0
+    ? `(+)${adjustmentRupees.toFixed(2)}`
+    : `(-)${Math.abs(adjustmentRupees).toFixed(2)}`;
+}
+
 export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buffer> {
   try {
     console.log(`[PDF Service] Generating PDF for invoice ${invoiceData.invoiceNumber}...`);
@@ -124,8 +146,10 @@ export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buff
     const templatePath = path.join(__dirname, '../templates/invoice-pdf.html');
     let html = fs.readFileSync(templatePath, 'utf-8');
 
-    // Load and convert logo to base64
-    const logoPath = path.join(__dirname, '../templates/hope-logo.png');
+    // Determine which logo to use based on invoice number format
+    const isNewFormat = invoiceData.invoiceNumber.startsWith('2026');
+    const logoFilename = isNewFormat ? 'hope-logo.png' : 'dx-solutions-logo-transparent.png';
+    const logoPath = path.join(__dirname, '../templates', logoFilename);
     let logoBase64 = '';
 
     if (fs.existsSync(logoPath)) {
@@ -154,7 +178,7 @@ export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buff
       : '';
 
     const eventTitleBlock = invoiceData.eventTitle
-      ? `<span class="event-name"> - ${invoiceData.eventTitle}</span>`
+      ? `<div class="event-date">${formatDate(invoiceData.invoiceDate)} Concert</div>`
       : '';
 
     // Replace placeholders
@@ -162,18 +186,35 @@ export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buff
       .replace(/{{logoBase64}}/g, logoBase64)
       .replace(/{{companyName}}/g, invoiceData.companyName)
       .replace(/{{companyAddress}}/g, invoiceData.companyAddress)
-      .replace(/{{companyPhone}}/g, invoiceData.companyPhone)
+      .replace(/{{companyPhone}}/g, invoiceData.companyPhone || '')
       .replace(/{{companyGstin}}/g, invoiceData.companyGstin)
+      .replace(/{{companyStateCode}}/g, invoiceData.companyStateCode || '')
+      .replace(/{{companyStateName}}/g, invoiceData.companyStateName || '')
+      .replace(/{{companyCin}}/g, invoiceData.companyCin || '')
+      .replace(/{{companyEmail}}/g, invoiceData.companyEmail || '')
+      .replace(/{{companyRegistrationNumber}}/g, invoiceData.companyRegistrationNumber || '')
+      .replace(/{{companyUdyamNumber}}/g, invoiceData.companyUdyamNumber || '')
+      .replace(/{{companyPan}}/g, invoiceData.companyPan || '')
+      .replace(/{{companyBankName}}/g, invoiceData.companyBankName || '')
+      .replace(/{{companyBankAccountNumber}}/g, invoiceData.companyBankAccountNumber || '')
+      .replace(/{{companyBankIfscCode}}/g, invoiceData.companyBankIfscCode || '')
+      .replace(/{{companyBankBranch}}/g, invoiceData.companyBankBranch || '')
       .replace(/{{invoiceNumber}}/g, invoiceData.invoiceNumber)
       .replace(/{{invoiceDate}}/g, formatDate(invoiceData.invoiceDate))
+      .replace(/{{razorpayPaymentId}}/g, invoiceData.razorpayPaymentId || '-')
+      .replace(/{{paymentDate}}/g, invoiceData.paymentDate ? formatDate(invoiceData.paymentDate) : '')
       .replace(/{{customerName}}/g, invoiceData.customerName || 'Customer')
       .replace(/{{invoiceTypeLabel}}/g, getInvoiceTypeLabel(invoiceData.invoiceType))
+      .replace(/{{eventTitle}}/g, invoiceData.eventTitle || getInvoiceTypeLabel(invoiceData.invoiceType))
       .replace(/{{eventTitleBlock}}/g, eventTitleBlock)
       .replace(/{{sacCode}}/g, invoiceData.sacCode || '999629')
       .replace(/{{subtotal}}/g, subtotal)
+      .replace(/{{cgst}}/g, cgst)
+      .replace(/{{sgst}}/g, sgst)
       .replace(/{{cgstRow}}/g, cgstRow)
       .replace(/{{sgstRow}}/g, sgstRow)
       .replace(/{{igstRow}}/g, igstRow)
+      .replace(/{{roundingAdjustment}}/g, getRoundingAdjustment(invoiceData))
       .replace(/{{total}}/g, total)
       .replace(/{{amountInWords}}/g, getAmountInWords(invoiceData.totalPaise));
 

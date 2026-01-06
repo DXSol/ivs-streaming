@@ -12,334 +12,544 @@
     }
 
     body {
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Arial, sans-serif;
       font-size: 12px;
-      line-height: 1.6;
-      color: #333;
-      padding: 20px;
-      background: white;
+      line-height: 1.4;
+      background: #fff;
+      padding: 10px;
     }
 
-    .invoice-container {
-      max-width: 800px;
-      margin: 0 auto;
-      background: white;
+    .invoice-content {
+      background: #fff;
+      border: 2px solid #000;
+      padding: 0;
     }
 
-    .invoice-logo {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .invoice-logo img {
-      max-width: 200px;
-      height: auto;
-    }
-
-    .company-section {
-      text-align: center;
-      margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 2px solid #8B1538;
-    }
-
-    .company-section h2 {
-      font-size: 18px;
-      color: #8B1538;
-      margin-bottom: 8px;
-      font-weight: bold;
-    }
-
-    .company-section p {
-      margin: 3px 0;
-      font-size: 11px;
-    }
-
-    .invoice-header {
-      text-align: center;
-      margin: 25px 0;
-    }
-
-    .invoice-header h1 {
-      font-size: 20px;
-      color: #8B1538;
-      font-weight: bold;
-      letter-spacing: 1px;
-    }
-
-    .invoice-meta-section {
-      margin-bottom: 25px;
-    }
-
-    .meta-row {
+    /* Top Section with Logo and Metadata */
+    .invoice-top-section {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 10px;
+      border-bottom: 1px solid #000;
+      padding: 10px;
+      gap: 10px;
     }
 
-    .meta-item {
+    .company-header {
+      display: flex;
+      flex: 1;
+      gap: 15px;
+      align-items: flex-start;
+    }
+
+    .logo-container {
+      flex-shrink: 0;
+    }
+
+    .logo-container img {
+      max-width: 80px;
+      max-height: 80px;
+      object-fit: contain;
+    }
+
+    .company-details {
       flex: 1;
     }
 
-    .meta-item label {
+    .company-name {
+      margin: 0 0 4px 0;
+      font-size: 14px;
       font-weight: bold;
-      display: block;
-      margin-bottom: 3px;
+      text-transform: uppercase;
+    }
+
+    .company-details p {
+      margin: 2px 0;
       font-size: 11px;
-      color: #666;
+      line-height: 1.3;
     }
 
-    .meta-item span {
-      display: block;
-      font-size: 12px;
-      color: #333;
+    .company-address {
+      font-size: 10px;
     }
 
-    .bill-to-section {
-      margin-bottom: 25px;
-      padding: 15px;
-      background: #f9f9f9;
-      border-left: 4px solid #8B1538;
+    .invoice-metadata-box {
+      flex-shrink: 0;
+      border: 1px solid #000;
+      min-width: 280px;
     }
 
-    .bill-to-section h3 {
-      font-size: 13px;
-      margin-bottom: 8px;
-      color: #8B1538;
+    .metadata-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .metadata-table tr {
+      border-bottom: 1px solid #000;
+    }
+
+    .metadata-table tr:last-child {
+      border-bottom: none;
+    }
+
+    .metadata-table td {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .metadata-table td.meta-label {
+      border-right: 1px solid #000;
+      font-weight: normal;
+      width: 50%;
+    }
+
+    .metadata-table td.meta-value {
       font-weight: bold;
     }
 
-    .bill-to-section .customer-name {
-      font-size: 13px;
+    /* Tax Invoice Title Bar */
+    .invoice-title-bar {
+      text-align: center;
+      padding: 8px;
+      border-bottom: 1px solid #000;
+    }
+
+    .invoice-title-bar h1 {
+      margin: 0;
+      font-size: 16px;
       font-weight: bold;
-      color: #333;
     }
 
-    .table-wrapper {
-      margin-bottom: 20px;
-      overflow-x: auto;
+    /* Buyer Section */
+    .buyer-section {
+      border-bottom: 1px solid #000;
+      padding: 8px 10px;
     }
 
+    .buyer-label {
+      font-weight: bold;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+
+    .buyer-details p {
+      margin: 2px 0;
+      font-size: 11px;
+    }
+
+    /* Main Invoice Table */
     .invoice-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 20px;
+      font-size: 11px;
     }
 
-    .invoice-table thead {
-      background: #8B1538;
-      color: white;
+    .invoice-table thead tr {
+      border-bottom: 1px solid #000;
     }
 
     .invoice-table th {
-      padding: 10px;
-      text-align: left;
-      font-size: 11px;
+      padding: 6px 4px;
+      text-align: center;
+      border-right: 1px solid #000;
       font-weight: bold;
-      border: 1px solid #8B1538;
+      font-size: 10px;
+      vertical-align: middle;
     }
 
-    .invoice-table td {
-      padding: 10px;
-      border: 1px solid #ddd;
-      font-size: 11px;
+    .invoice-table th:last-child {
+      border-right: none;
     }
 
-    .invoice-table tbody tr {
-      background: white;
+    .invoice-table tbody td {
+      padding: 6px 4px;
+      vertical-align: top;
+      border-right: 1px solid #000;
     }
 
-    .invoice-table tbody tr:hover {
-      background: #f9f9f9;
+    .invoice-table tbody td:last-child {
+      border-right: none;
     }
 
-    .invoice-table .description-col {
-      width: 40%;
-    }
-
-    .invoice-table .sac-col {
-      width: 15%;
+    .invoice-table .sl-col {
+      width: 5%;
       text-align: center;
     }
 
-    .invoice-table .qty-col {
+    .invoice-table .description-col {
+      width: 35%;
+      text-align: left;
+      padding-left: 8px;
+    }
+
+    .invoice-table .hsn-col {
+      width: 10%;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .invoice-table .qty-col,
+    .invoice-table .per-col {
       width: 10%;
       text-align: center;
     }
 
-    .invoice-table .rate-col {
-      width: 17.5%;
+    .invoice-table .rate-col,
+    .invoice-table .amount-col {
       text-align: right;
+      padding-right: 8px;
+    }
+
+    .invoice-table .rate-col {
+      width: 12%;
     }
 
     .invoice-table .amount-col {
-      width: 17.5%;
-      text-align: right;
+      width: 20%;
     }
 
-    .invoice-table .event-name {
-      display: block;
-      font-size: 10px;
-      color: #666;
-      margin-top: 3px;
-    }
-
-    .tax-summary {
-      margin-left: auto;
-      width: 300px;
-      margin-bottom: 25px;
-    }
-
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 12px;
-      border-bottom: 1px solid #eee;
+    .invoice-table .description-col strong {
       font-size: 12px;
     }
 
-    .summary-row.total {
-      background: #8B1538;
-      color: white;
-      font-weight: bold;
-      font-size: 14px;
-      border: none;
-      margin-top: 5px;
+    .event-date {
+      font-size: 10px;
+      font-style: italic;
+      margin-top: 2px;
     }
 
-    .amount-words {
-      margin-bottom: 30px;
-      padding: 15px;
-      background: #f9f9f9;
-      border-left: 4px solid #8B1538;
+    .invoice-table tbody tr:not(.tax-row):not(.spacer-row):not(.total-row) {
+      border-bottom: 1px solid #000;
+    }
+
+    .tax-row td.tax-label-cell {
+      text-align: right;
+      padding-right: 8px;
+      border-right: 1px solid #000;
+    }
+
+    .tax-label-indent {
+      float: left;
+      margin-left: 8px;
+    }
+
+    .tax-label-right {
+      font-weight: bold;
+    }
+
+    .spacer-row {
+      height: 20px;
+    }
+
+    .spacer-row td {
+      border-right: 1px solid #000;
+      padding: 0;
+    }
+
+    .spacer-row td:last-child {
+      border-right: none;
+    }
+
+    .total-row {
+      border-top: 1px solid #000;
+      font-weight: bold;
+    }
+
+    .total-row td {
+      padding: 8px 4px;
+    }
+
+    .total-row .total-label {
+      text-align: right;
+      padding-right: 8px;
+      border-right: 1px solid #000;
+    }
+
+    .total-row .total-amount {
+      text-align: right;
+      padding-right: 8px;
+      font-size: 13px;
+    }
+
+    /* Amount in Words Section */
+    .amount-words-section {
+      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
+      padding: 8px 10px;
+    }
+
+    .amount-words-label {
+      font-weight: bold;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .amount-words-value {
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .amount-words-footer {
+      text-align: right;
+      font-size: 11px;
+      font-style: italic;
+    }
+
+    /* Footer Section */
+    .invoice-footer-section {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      min-height: 150px;
+    }
+
+    .footer-left {
+      flex: 1;
+    }
+
+    .bank-details {
+      margin-bottom: 15px;
+    }
+
+    .bank-details h4 {
+      margin: 0 0 6px 0;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .bank-table {
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    .bank-table td {
+      padding: 2px 4px 2px 0;
+    }
+
+    .bank-table .bank-label {
+      font-weight: normal;
+      white-space: nowrap;
+    }
+
+    .bank-table .bank-value {
+      font-weight: bold;
+      padding-left: 4px;
+    }
+
+    .pan-table {
+      border-collapse: collapse;
       font-size: 11px;
     }
 
-    .amount-words strong {
-      display: block;
-      margin-bottom: 5px;
-      color: #8B1538;
+    .pan-table td {
+      padding: 2px 4px;
     }
 
-    .invoice-footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 2px solid #8B1538;
-      text-align: center;
-      font-size: 10px;
-      color: #666;
+    .pan-table .pan-label {
+      font-weight: normal;
     }
 
-    .invoice-footer p {
-      margin: 5px 0;
+    .pan-table .pan-sep {
+      padding: 0 4px;
     }
 
-    .invoice-footer .thank-you {
-      margin-top: 15px;
+    .pan-table .pan-value {
       font-weight: bold;
       font-size: 12px;
-      color: #8B1538;
     }
 
-    @media print {
-      body {
-        padding: 0;
-      }
+    .footer-right {
+      flex-shrink: 0;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 150px;
+    }
+
+    .company-for {
+      margin: 0;
+      font-size: 10px;
+      text-align: right;
+    }
+
+    .signature-section p {
+      margin: 0;
+      font-size: 11px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div class="invoice-container">
-    <!-- Logo -->
-    <div class="invoice-logo">
-      <img src="{{logoBase64}}" alt="Company Logo" />
-    </div>
-
-    <!-- Company Details -->
-    <div class="company-section">
-      <h2>{{companyName}}</h2>
-      <p>{{companyAddress}}</p>
-      <p>{{companyPhone}}</p>
-      <p><strong>GSTIN:</strong> {{companyGstin}}</p>
-    </div>
-
-    <!-- Invoice Header -->
-    <div class="invoice-header">
-      <h1>TAX INVOICE</h1>
-    </div>
-
-    <!-- Invoice Meta -->
-    <div class="invoice-meta-section">
-      <div class="meta-row">
-        <div class="meta-item">
-          <label>Invoice Number</label>
-          <span>{{invoiceNumber}}</span>
+  <div class="invoice-content">
+    <!-- Header Section with Logo and Invoice Metadata -->
+    <div class="invoice-top-section">
+      <!-- Left: Logo and Company Details -->
+      <div class="company-header">
+        <div class="logo-container">
+          <img src="{{logoBase64}}" alt="{{companyName}} Logo" />
         </div>
-        <div class="meta-item">
-          <label>Invoice Date</label>
-          <span>{{invoiceDate}}</span>
+        <div class="company-details">
+          <h2 class="company-name">{{companyName}}</h2>
+          <p>Regd Off: {{companyRegistrationNumber}}</p>
+          <p class="company-address">{{companyAddress}}</p>
+          <p>UDYAM : {{companyUdyamNumber}}</p>
+          <p>
+            <strong>GSTIN:</strong> {{companyGstin}} |
+            <span>State Name: {{companyStateName}}, Code: {{companyStateCode}}</span>
+          </p>
+          <p><strong>CIN:</strong> {{companyCin}}</p>
+          <p>E-Mail : {{companyEmail}}</p>
         </div>
+      </div>
+
+      <!-- Right: Invoice Metadata Box -->
+      <div class="invoice-metadata-box">
+        <table class="metadata-table">
+          <tr>
+            <td class="meta-label">Invoice No.</td>
+            <td class="meta-value">{{invoiceNumber}}</td>
+          </tr>
+          <tr>
+            <td class="meta-label">Dated</td>
+            <td class="meta-value">{{invoiceDate}}</td>
+          </tr>
+          <tr>
+            <td class="meta-label">Reference No. & Date.</td>
+            <td class="meta-value">{{razorpayPaymentId}} / {{paymentDate}}</td>
+          </tr>
+        </table>
       </div>
     </div>
 
-    <!-- Bill To -->
-    <div class="bill-to-section">
-      <h3>Bill To:</h3>
-      <p class="customer-name">{{customerName}}</p>
+    <!-- Tax Invoice Title -->
+    <div class="invoice-title-bar">
+      <h1>Tax Invoice</h1>
+    </div>
+
+    <!-- Buyer Section -->
+    <div class="buyer-section">
+      <div class="buyer-label">Buyer (Bill to)</div>
+      <div class="buyer-details">
+        <p>{{customerName}}</p>
+        <p>{{invoiceTypeLabel}}</p>
+        <p>State: {{companyStateName}}, Code: {{companyStateCode}}</p>
+      </div>
     </div>
 
     <!-- Line Items Table -->
-    <div class="table-wrapper">
-      <table class="invoice-table">
-        <thead>
-          <tr>
-            <th class="description-col">Description</th>
-            <th class="sac-col">SAC</th>
-            <th class="qty-col">Qty</th>
-            <th class="rate-col">Rate (₹)</th>
-            <th class="amount-col">Amount (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>
-              {{invoiceTypeLabel}}
-              {{eventTitleBlock}}
-            </td>
-            <td class="sac-col">{{sacCode}}</td>
-            <td class="qty-col">1</td>
-            <td class="rate-col">{{subtotal}}</td>
-            <td class="amount-col">{{subtotal}}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th class="sl-col">Sl<br/>No.</th>
+          <th class="description-col">Description of<br/>Services</th>
+          <th class="hsn-col">HSN/SAC</th>
+          <th class="qty-col">Quantity</th>
+          <th class="rate-col">Rate</th>
+          <th class="per-col">per</th>
+          <th class="amount-col">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="sl-col">1</td>
+          <td class="description-col">
+            <strong>{{eventTitle}}</strong>
+            {{eventTitleBlock}}
+          </td>
+          <td class="hsn-col">{{sacCode}}</td>
+          <td class="qty-col"></td>
+          <td class="rate-col"></td>
+          <td class="per-col"></td>
+          <td class="amount-col">{{subtotal}}</td>
+        </tr>
 
-    <!-- Tax Summary -->
-    <div class="tax-summary">
-      <div class="summary-row">
-        <span>Subtotal</span>
-        <span>₹{{subtotal}}</span>
-      </div>
-      {{cgstRow}}
-      {{sgstRow}}
-      {{igstRow}}
-      <div class="summary-row total">
-        <span>Total</span>
-        <span>₹{{total}}</span>
-      </div>
-    </div>
+        <!-- GST Rows -->
+        <tr class="tax-row">
+          <td colspan="6" class="tax-label-cell">
+            <span class="tax-label-right">CGST 9%</span>
+          </td>
+          <td class="amount-col">{{cgst}}</td>
+        </tr>
+        <tr class="tax-row">
+          <td colspan="6" class="tax-label-cell">
+            <span class="tax-label-right">SGST 9%</span>
+          </td>
+          <td class="amount-col">{{sgst}}</td>
+        </tr>
+        <tr class="tax-row">
+          <td colspan="6" class="tax-label-cell">
+            <span class="tax-label-indent">Less :</span>
+            <span class="tax-label-right">Rounded Off +/-</span>
+          </td>
+          <td class="amount-col">{{roundingAdjustment}}</td>
+        </tr>
+
+        <!-- Empty rows for spacing -->
+        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+        <tr class="spacer-row"><td colspan="7">&nbsp;</td></tr>
+
+        <!-- Total Row -->
+        <tr class="total-row">
+          <td colspan="6" class="total-label">Total</td>
+          <td class="amount-col total-amount"><strong>{{total}} ₹</strong></td>
+        </tr>
+      </tbody>
+    </table>
 
     <!-- Amount in Words -->
-    <div class="amount-words">
-      <strong>Amount in Words:</strong>
-      {{amountInWords}}
+    <div class="amount-words-section">
+      <div class="amount-words-label">Amount Chargeable (in words)</div>
+      <div class="amount-words-value"><strong>{{amountInWords}}</strong></div>
+      <div class="amount-words-footer">E. & O.E.</div>
     </div>
 
-    <!-- Footer -->
-    <div class="invoice-footer">
-      <p>This is a computer-generated invoice and does not require a signature.</p>
-      <p class="thank-you">Thank you for your purchase!</p>
+    <!-- Footer Section with Bank Details and PAN -->
+    <div class="invoice-footer-section">
+      <div class="footer-left">
+        <div class="bank-details">
+          <h4>Company's Bank Details</h4>
+          <table class="bank-table">
+            <tr>
+              <td class="bank-label">A/c Holder's Name :</td>
+              <td class="bank-value">{{companyName}}</td>
+            </tr>
+            <tr>
+              <td class="bank-label">Bank Name</td>
+              <td class="bank-value">: {{companyBankName}}</td>
+            </tr>
+            <tr>
+              <td class="bank-label">A/c No.</td>
+              <td class="bank-value">: {{companyBankAccountNumber}}</td>
+            </tr>
+            <tr>
+              <td class="bank-label">Branch & IFS Code :</td>
+              <td class="bank-value">{{companyBankBranch}} & {{companyBankIfscCode}}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="pan-section">
+          <table class="pan-table">
+            <tr>
+              <td class="pan-label">Company's PAN</td>
+              <td class="pan-sep">:</td>
+              <td class="pan-value"><strong>{{companyPan}}</strong></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer-right">
+        <p class="company-for">for <strong>{{companyName}}</strong></p>
+        <div class="signature-section">
+          <p>Authorised Signatory</p>
+        </div>
+      </div>
     </div>
   </div>
 </body>
