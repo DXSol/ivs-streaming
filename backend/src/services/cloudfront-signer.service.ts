@@ -66,19 +66,58 @@ export function getRecordingPath(eventId: string): string {
 }
 
 /**
- * Check if a recording is still within the allowed viewing window (3 days).
+ * Check if a recording is still within the allowed viewing window.
+ * For upcoming events: expiry = event_end + 3 days
+ * For past events: expiry = payment_date + 3 days
  */
-export function isRecordingExpired(eventEndDate: Date): boolean {
-  const expiryDate = new Date(eventEndDate);
-  expiryDate.setDate(expiryDate.getDate() + env.recordings.expiryDays);
-  return new Date() > expiryDate;
+export function isRecordingExpired(eventEndDate: Date, paymentDate?: Date): boolean {
+  const now = new Date();
+
+  // Calculate expiry as exact milliseconds (days * 24 hours * 60 minutes * 60 seconds * 1000 ms)
+  const expiryMilliseconds = env.recordings.expiryDays * 24 * 60 * 60 * 1000;
+
+  // If no payment date, use event end date + expiry days
+  if (!paymentDate) {
+    const expiryDate = new Date(eventEndDate.getTime() + expiryMilliseconds);
+    return now > expiryDate;
+  }
+
+  // Check if payment was made before or after event ended
+  const eventEndedAtPurchase = paymentDate > eventEndDate;
+
+  // If purchased BEFORE event ended: use event_end + 3 days
+  if (!eventEndedAtPurchase) {
+    const expiryDate = new Date(eventEndDate.getTime() + expiryMilliseconds);
+    return now > expiryDate;
+  }
+
+  // If purchased AFTER event ended: use payment_date + 3 days
+  const paymentExpiryDate = new Date(paymentDate.getTime() + expiryMilliseconds);
+  return now > paymentExpiryDate;
 }
 
 /**
- * Get the expiry date for a recording based on event end date.
+ * Get the expiry date for a recording.
+ * For upcoming events: expiry = event_end + 3 days
+ * For past events: expiry = payment_date + 3 days
  */
-export function getRecordingExpiryDate(eventEndDate: Date): Date {
-  const expiryDate = new Date(eventEndDate);
-  expiryDate.setDate(expiryDate.getDate() + env.recordings.expiryDays);
-  return expiryDate;
+export function getRecordingExpiryDate(eventEndDate: Date, paymentDate?: Date): Date {
+  // Calculate expiry as exact milliseconds (days * 24 hours * 60 minutes * 60 seconds * 1000 ms)
+  const expiryMilliseconds = env.recordings.expiryDays * 24 * 60 * 60 * 1000;
+
+  // If no payment date, use event end date + expiry days
+  if (!paymentDate) {
+    return new Date(eventEndDate.getTime() + expiryMilliseconds);
+  }
+
+  // Check if payment was made before or after event ended
+  const eventEndedAtPurchase = paymentDate > eventEndDate;
+
+  // If purchased BEFORE event ended: use event_end + 3 days
+  if (!eventEndedAtPurchase) {
+    return new Date(eventEndDate.getTime() + expiryMilliseconds);
+  }
+
+  // If purchased AFTER event ended: use payment_date + 3 days
+  return new Date(paymentDate.getTime() + expiryMilliseconds);
 }

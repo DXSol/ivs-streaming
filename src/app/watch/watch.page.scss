@@ -47,9 +47,15 @@
   aspect-ratio: 16 / 9;
   border-radius: var(--app-radius-sm);
   z-index: 1;
+  pointer-events: none;
 
   @media (min-width: 768px) {
     border-radius: var(--app-radius);
+  }
+
+  // Allow pointer events on interactive children
+  * {
+    pointer-events: auto;
   }
 }
 // Native player anchor - reserves space for native player overlay
@@ -74,12 +80,38 @@
   height: 100%;
   object-fit: contain;
   z-index: 5;
+  pointer-events: auto;
 }
 
 
-// Ensure video controls are clickable when video is playing/paused
+// Ensure video controls are clickable and accessible across all devices
+video::-webkit-media-controls-panel {
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
 video::-webkit-media-controls {
-  z-index: 10;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
+video::-webkit-media-controls-play-button {
+  pointer-events: auto !important;
+}
+
+video::-webkit-media-controls-timeline {
+  pointer-events: auto !important;
+}
+
+// iOS Safari specific - ensure controls work
+video[controls] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+// Ensure fullscreen controls work on iOS
+video::-webkit-media-controls-fullscreen-button {
+  pointer-events: auto !important;
 }
 
 .overlay {
@@ -93,6 +125,8 @@ video::-webkit-media-controls {
   font-size: 15px;
   text-align: center;
   padding: 20px;
+  z-index: 20;
+  pointer-events: auto;
 }
 
 .overlay-content {
@@ -171,6 +205,7 @@ video::-webkit-media-controls {
   align-items: center;
   gap: 12px;
   z-index: 10;
+  pointer-events: none;
 }
 
 .live-badge {
@@ -229,6 +264,7 @@ video::-webkit-media-controls {
   justify-content: center;
   z-index: 15;
   transition: all 0.2s ease;
+  pointer-events: auto;
 
   &:hover {
     background: rgba(0, 0, 0, 0.8);
@@ -237,10 +273,25 @@ video::-webkit-media-controls {
 
   &.connected {
     background: var(--ion-color-primary);
-    
+
     .cast-icon {
       fill: #fff;
     }
+  }
+
+  &.searching {
+    animation: pulse-search 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-search {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
   }
 }
 
@@ -274,6 +325,72 @@ video::-webkit-media-controls {
     color: rgba(255, 255, 255, 0.6);
     margin-bottom: 16px;
     font-style: italic;
+  }
+}
+
+// Device search overlay
+.overlay.device-search {
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 20;
+
+  .search-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .search-hint {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 16px;
+  }
+
+  .search-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .device-list {
+    width: 100%;
+    max-width: 300px;
+    margin: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .device-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    text-align: left;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--ion-color-primary);
+      transform: translateX(4px);
+    }
+
+    .device-icon {
+      width: 24px;
+      height: 24px;
+      fill: #fff;
+      flex-shrink: 0;
+    }
+
+    .device-name {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+    }
   }
 }
 

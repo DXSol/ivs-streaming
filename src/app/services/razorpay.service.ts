@@ -25,10 +25,15 @@ export interface EventPriceResponse {
 }
 
 export interface SeasonTicketPriceResponse {
-  originalPaise: number;
-  discountedPaise: number;
+  originalPaise?: number;
+  discountedPaise?: number;
+  originalCents?: number;
+  discountedCents?: number;
   discountPercent: number;
   eventCount: number;
+  currency: string;
+  displayPrice: string;
+  isInternational: boolean;
 }
 
 export interface CreateSeasonOrderResponse {
@@ -36,8 +41,9 @@ export interface CreateSeasonOrderResponse {
   amount: number;
   currency: string;
   keyId: string;
-  originalPaise: number;
-  discountedPaise: number;
+  originalAmount: number;
+  discountedAmount: number;
+  isInternational: boolean;
 }
 
 export interface VerifyPendingResponse {
@@ -123,13 +129,15 @@ export class RazorpayService {
 
   async verifySeasonPayment(
     paymentResult: PaymentResult,
-    amountPaise: number
+    amountPaise: number,
+    currency: string
   ): Promise<{ success: boolean; message: string; invoiceId?: string }> {
     const url = `${environment.apiBaseUrl}/razorpay/verify-season-payment`;
     return await firstValueFrom(
       this.http.post<{ success: boolean; message: string; invoiceId?: string }>(url, {
         ...paymentResult,
         amountPaise,
+        currency,
       })
     );
   }

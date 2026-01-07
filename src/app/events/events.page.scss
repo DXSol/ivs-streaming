@@ -759,6 +759,10 @@
         @media (min-width: 481px) and (max-width: 600px) {
           font-size: 24px;
         }
+
+        &.no-discount {
+          color: var(--theme-accent-maroon);
+        }
       }
     }
 

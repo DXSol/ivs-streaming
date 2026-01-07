@@ -41,6 +41,7 @@ export class CreateEventPage implements OnInit {
   priceRupees = 500; // Default price in rupees
   recordingOnly = false; // Deferred Live - recording only, no live stream
   recordingAvailableHours = 0; // Hours after event ends when recording becomes available
+  allowPastPurchase = true; // Allow ticket purchase even after event has ended
 
   isSubmitting = false;
   isUploading = false;
@@ -168,6 +169,7 @@ export class CreateEventPage implements OnInit {
         price_paise: this.eventType === 'paid' ? Math.round(this.priceRupees * 100) : 0,
         recording_only: this.eventType === 'paid' ? this.recordingOnly : false,
         recording_available_hours: (this.eventType === 'paid' && this.recordingOnly) ? this.recordingAvailableHours : 0,
+        allow_past_purchase: this.eventType === 'paid' ? this.allowPastPurchase : false,
       };
 
       const created = await this.eventsApi.createEvent(eventData);

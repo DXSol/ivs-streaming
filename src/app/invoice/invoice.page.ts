@@ -14,9 +14,10 @@ import {
   IonSpinner,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { printOutline, arrowBackOutline } from 'ionicons/icons';
+import { printOutline, arrowBackOutline, documentOutline } from 'ionicons/icons';
 
 import { AuthService, Invoice } from '../services/auth.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-invoice',
@@ -49,7 +50,7 @@ export class InvoicePage implements OnInit {
     private router: Router,
     private auth: AuthService
   ) {
-    addIcons({ printOutline, arrowBackOutline });
+    addIcons({ printOutline, arrowBackOutline, documentOutline });
   }
 
   async ngOnInit() {
@@ -67,8 +68,8 @@ export class InvoicePage implements OnInit {
     try {
       const result = await this.auth.getInvoice(invoiceId);
       this.invoice = result.invoice;
-      // Check if invoice uses new format (YYYY/MM/H/serial) - contains /H/
-      this.isNewFormat = this.invoice?.invoice_number?.includes('/H/') || false;
+      // Check if invoice uses new format (YYYYMMH-serial) - starts with year 2026+
+      this.isNewFormat = this.invoice?.invoice_number?.startsWith('2026') || false;
     } catch (err: any) {
       this.errorMessage = 'Failed to load invoice';
       console.error('Failed to load invoice:', err);
@@ -92,6 +93,44 @@ export class InvoicePage implements OnInit {
 
   printInvoice() {
     window.print();
+  }
+
+  async downloadPdf() {
+    if (!this.invoice) return;
+
+    try {
+      const token = this.auth.getAccessTokenSync();
+      if (!token) {
+        alert('Please log in to download the invoice.');
+        return;
+      }
+
+      const invoiceId = this.invoice.id;
+
+      // Fetch PDF as blob
+      const response = await fetch(`${environment.apiBaseUrl}/invoices/${invoiceId}/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Invoice-${this.invoice.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      alert('Failed to download PDF. Please try again.');
+    }
   }
 
   goBack() {
@@ -135,11 +174,27 @@ export class InvoicePage implements OnInit {
     return result.trim();
   }
 
+  getRoundingAdjustment(): string {
+    if (!this.invoice) return '0.00';
+
+    // Calculate what the total should be based on subtotal + taxes
+    const calculatedTotal = this.invoice.subtotal_paise + this.invoice.cgst_paise + this.invoice.sgst_paise;
+
+    // Rounding adjustment is the difference
+    const adjustment = this.invoice.total_paise - calculatedTotal;
+
+    // Format as currency with sign
+    const adjustmentRupees = adjustment / 100;
+    return adjustmentRupees >= 0
+      ? `(+)${adjustmentRupees.toFixed(2)}`
+      : `(-)${Math.abs(adjustmentRupees).toFixed(2)}`;
+  }
+
   getAmountInWords(): string {
     if (!this.invoice) return '';
     const rupees = Math.floor(this.invoice.total_paise / 100);
     const paise = this.invoice.total_paise % 100;
-    
+
     let result = 'Rupees ' + this.numberToWords(rupees);
     if (paise > 0) {
       result += ' and ' + this.numberToWords(paise) + ' Paise';

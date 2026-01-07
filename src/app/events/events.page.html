@@ -53,7 +53,7 @@
   </div>
 
   <!-- Season Ticket Card (only for paid tab) -->
-  <div class="season-ticket-wrapper" *ngIf="selectedTab === 'paid' && !isLoading && seasonTicketPrice && !hasSeasonTicket">
+  <div class="season-ticket-wrapper" *ngIf="selectedTab === 'paid' && !isLoading && seasonTicketPrice && !hasSeasonTicket && shouldShowSeasonTicketBanner()">
     <div class="season-ticket-card">
       <div class="ticket-icon-section">
         <div class="ticket-icon-wrapper">
@@ -75,10 +75,13 @@
       </div>
       <div class="ticket-pricing">
         <div class="price-block">
-          <span class="original-price">₹{{ seasonTicketPrice.originalPaise / 100 }}</span>
-          <span class="discounted-price">₹{{ seasonTicketPrice.discountedPaise / 100 }}</span>
+          <!-- Show original price only if there's a discount -->
+          <span class="original-price" *ngIf="seasonTicketPrice.discountPercent > 0">{{ getOriginalPrice() }}</span>
+          <!-- Show discounted/final price -->
+          <span class="discounted-price" [class.no-discount]="seasonTicketPrice.discountPercent === 0">{{ seasonTicketPrice.displayPrice }}</span>
         </div>
-        <span class="discount-badge">{{ seasonTicketPrice.discountPercent }}% OFF</span>
+        <!-- Show discount badge only if there's a discount -->
+        <span class="discount-badge" *ngIf="seasonTicketPrice.discountPercent > 0">{{ seasonTicketPrice.discountPercent }}% OFF</span>
         <ion-button expand="block" color="success" (click)="buySeasonTicket()" [disabled]="isProcessingSeasonPayment">
           <ion-spinner *ngIf="isProcessingSeasonPayment" name="crescent"></ion-spinner>
           <span *ngIf="!isProcessingSeasonPayment"><ion-icon name="cart-outline" style="margin-right: 6px;"></ion-icon> Buy Season Ticket</span>
@@ -141,7 +144,7 @@
           <div class="card-footer">
             <!-- Paid event actions -->
             <ng-container *ngIf="selectedTab === 'paid'">
-              <span class="event-price">₹{{ (e.price_paise || 50000) / 100 }}</span>
+              <span class="event-price">{{ getEventPrice(e) }}</span>
               <!-- Deferred Live badge for recording-only events -->
               <!--span class="deferred-live-badge" *ngIf="e.recording_only">Deferred Live</span-->
               <!-- Buy Ticket: Show for logged out users OR logged in users without access -->
@@ -223,19 +226,30 @@
           </div>
           <p class="event-desc" *ngIf="e.description">{{ e.description }}</p>
           <div class="card-footer">
-            <span class="event-price" *ngIf="selectedTab === 'paid'">₹{{ (e.price_paise || 50000) / 100 }}</span>
+            <span class="event-price" *ngIf="selectedTab === 'paid'">{{ getEventPrice(e) }}</span>
             <!-- Deferred Live badge for recording-only events -->
             <span class="deferred-live-badge" *ngIf="selectedTab === 'paid' && e.recording_only">Deferred Live</span>
             <span class="free-badge" *ngIf="selectedTab === 'free' || selectedTab === 'free-short'">Free</span>
-            <!-- Paid: Recording available with expiry info -->
-            <ng-container *ngIf="selectedTab === 'paid' && isRecordingAvailable(e)">
-              <div class="recording-info">
+
+            <!-- Buy Ticket button for past events (if allow_past_purchase is enabled) -->
+            <ion-button
+              *ngIf="selectedTab === 'paid' && canPurchasePastEvent(e)"
+              size="small"
+              color="success"
+              (click)="buyEventTicket(e, $event)"
+            >
+              <ion-icon name="ticket-outline" style="margin-right: 4px;"></ion-icon> Buy Ticket
+            </ion-button>
+
+            <!-- Paid: Recording available - Watch button for users with access -->
+            <ng-container *ngIf="selectedTab === 'paid' && isLoggedIn && hasAccessToEvent(e) && isRecordingAvailable(e)">
+              <!-- Show expiry info only for non-admin users with non-expired access -->
+              <div class="recording-info" *ngIf="!isAdmin && !isRecordingExpired(e)">
                 <span class="recording-expiry">
                   <ion-icon name="time-outline"></ion-icon>
                   Recording expires: {{ getRecordingTimeRemaining(e) }}
                 </span>
                 <ion-button
-                  *ngIf="isLoggedIn && hasAccessToEvent(e)"
                   size="small"
                   color="tertiary"
                   [routerLink]="['/watch', e.id]"
@@ -245,9 +259,20 @@
                   <ion-icon name="videocam-outline" style="margin-right: 4px;"></ion-icon> Watch Recording
                 </ion-button>
               </div>
+              <!-- Show Watch button only for admins (without expiry info) -->
+              <ion-button
+                *ngIf="isAdmin"
+                size="small"
+                color="tertiary"
+                [routerLink]="['/watch', e.id]"
+                [queryParams]="{ mode: 'recording' }"
+                (click)="$event.stopPropagation()"
+              >
+                <ion-icon name="videocam-outline" style="margin-right: 4px;"></ion-icon> Watch Recording
+              </ion-button>
             </ng-container>
-            <!-- Paid: Recording expired -->
-            <span class="expired-badge" *ngIf="selectedTab === 'paid' && isRecordingExpired(e)">Recording Expired</span>
+            <!-- Paid: Recording expired (only for non-admin users with access) -->
+            <span class="expired-badge" *ngIf="selectedTab === 'paid' && isLoggedIn && !isAdmin && hasAccessToEvent(e) && isRecordingExpired(e)">Recording Expired</span>
             
             <!-- Free/Free-Short: YouTube video always available -->
             <ng-container *ngIf="selectedTab === 'free' || selectedTab === 'free-short'">

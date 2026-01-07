@@ -34,13 +34,21 @@ import { Subscription } from 'rxjs';
 export class AppComponent implements OnInit, OnDestroy {
   isAdmin = false;
   private authSubscription?: Subscription;
+  private userRole: 'viewer' | 'admin' | 'superadmin' | 'finance-admin' | 'content-admin' | null = null;
 
   adminMenuItems = [
-    { title: 'Dashboard', url: '/admin/dashboard', icon: 'stats-chart-outline' },
-    { title: 'Create Event', url: '/admin/create-event', icon: 'add-circle-outline' },
-    { title: 'Subscribers', url: '/admin/mark-paid', icon: 'people-outline' },
-    { title: 'Invoice Statement', url: '/admin/invoice-statement', icon: 'receipt-outline' },
+    { title: 'Dashboard', url: '/admin/dashboard', icon: 'stats-chart-outline', roles: ['superadmin', 'admin', 'content-admin'] },
+    { title: 'Create Event', url: '/admin/create-event', icon: 'add-circle-outline', roles: ['superadmin', 'admin', 'content-admin'] },
+    { title: 'Subscribers', url: '/admin/mark-paid', icon: 'people-outline', roles: ['superadmin', 'admin'] },
+    { title: 'Invoice Statement', url: '/admin/invoice-statement', icon: 'receipt-outline', roles: ['superadmin', 'admin', 'finance-admin'] },
+    { title: 'Pending USD Invoices', url: '/admin/pending-usd-invoices', icon: 'card-outline', roles: ['superadmin', 'admin', 'finance-admin'] },
+    { title: 'Manage Users', url: '/admin/manage-users', icon: 'settings-outline', roles: ['superadmin'] },
   ];
+
+  get visibleMenuItems() {
+    if (!this.userRole) return [];
+    return this.adminMenuItems.filter(item => item.roles.includes(this.userRole!));
+  }
 
   constructor(private auth: AuthService) {
     addIcons({ statsChartOutline, addCircleOutline, cardOutline, settingsOutline, peopleOutline, receiptOutline });
@@ -51,7 +59,8 @@ export class AppComponent implements OnInit, OnDestroy {
     
     // Subscribe to auth state changes to update admin status reactively
     this.authSubscription = this.auth.user$.subscribe(user => {
-      this.isAdmin = user?.role === 'admin';
+      this.userRole = user?.role || null;
+      this.isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'finance-admin' || user?.role === 'content-admin';
     });
   }
 

@@ -30,7 +30,7 @@ import { FooterComponent } from '../shared/footer/footer.component';
 import { AuthService } from '../services/auth.service';
 import { EventTimePipe } from '../pipes/event-time.pipe';
 import { Capacitor } from '@capacitor/core';
-import { ChromecastService, CastState } from '../services/chromecast.service';
+import { ChromecastService, CastState, CastDevice } from '../services/chromecast.service';
 
 @Component({
   selector: 'app-watch',
@@ -139,19 +139,34 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     playerState: 'idle'
   };
   private castSubscription?: Subscription;
-  
+
   // Chromecast settings from server
   castSettings = {
-    enableLiveCasting: false,
+    enableLiveCasting: true,
     enableRecordingCasting: true
   };
-  
+
+  // Device discovery state
+  showDeviceSearch = false;
+  isSearchingDevices = false;
+  deviceSearchTimedOut = false;
+  availableDevices: CastDevice[] = [];
+  deviceSearchTimeRemaining = 60;
+  private deviceSearchTimer?: any;
+  private deviceSearchCountdownTimer?: any;
+
   // Computed property to check if casting is allowed for current content
   get isCastingAllowed(): boolean {
     if (this.isRecordingMode) {
       return this.castSettings.enableRecordingCasting;
     }
     return this.castSettings.enableLiveCasting;
+  }
+
+  // Debug method to log cast icon visibility conditions
+  get castIconVisible(): boolean {
+    const visible = !this.useNativePlayer && this.isCastingAllowed && (this.streamStatus === 'live' || this.streamStatus === 'recording');
+    return visible;
   }
 
   constructor(
@@ -175,12 +190,15 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     this.useNativePlayer = Capacitor.isNativePlatform();
     console.log('[Watch] Platform detection - useNativePlayer:', this.useNativePlayer, 'Platform:', Capacitor.getPlatform());
     
-    // Listen for app resume (coming back from background)
-    this.resumeSubscription = this.platform.resume.subscribe(() => {
-      this.ngZone.run(() => {
-        this.onAppResume();
+    // Listen for app resume (coming back from background) - only for native apps
+    // Web browsers don't need this as they handle video state properly
+    if (this.useNativePlayer) {
+      this.resumeSubscription = this.platform.resume.subscribe(() => {
+        this.ngZone.run(() => {
+          this.onAppResume();
+        });
       });
-    });
+    }
     
     // Handle hardware back button for native player
     if (this.useNativePlayer) {
@@ -219,7 +237,8 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     await this.auth.init();
     const user = this.auth.getUserSync();
     this.isLoggedIn = !!user;
-    this.isAdmin = user?.role === 'admin';
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    this.isAdmin = user?.role ? adminRoles.includes(user.role) : false;
 
     this.eventId = this.route.snapshot.paramMap.get('id');
     const mode = this.route.snapshot.queryParamMap.get('mode');
@@ -462,6 +481,15 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
       this.recordingUrlExpiresAt = this.recordingSessions[0].expiresAt;
       this.streamStatus = 'recording';
       this.sessionRetryCount = 0;
+
+      // Debug: Log cast icon visibility after setting recording status
+      console.log('[Watch] Stream status set to recording. Cast icon should now be visible.');
+      console.log('[Watch] Cast icon visibility after status change:', {
+        streamStatus: this.streamStatus,
+        isRecordingMode: this.isRecordingMode,
+        isCastingAllowed: this.isCastingAllowed,
+        castIconVisible: this.castIconVisible
+      });
 
       // Platform-specific player initialization for recordings
       if (this.useNativePlayer) {
@@ -780,7 +808,138 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.castState.isConnected) {
       this.stopCasting();
     } else {
-      await this.chromecast.openCastDialog();
+      await this.startDeviceDiscovery();
+    }
+  }
+
+  /**
+   * Start device discovery process
+   */
+  async startDeviceDiscovery(): Promise<void> {
+    console.log('[Watch] Starting device discovery...');
+
+    // Check if SDK is initialized
+    if (!(this.chromecast as any).isInitialized) {
+      console.warn('[Watch] Cast SDK not initialized yet, waiting...');
+      // Give SDK some time to initialize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      if (!(this.chromecast as any).isInitialized) {
+        console.error('[Watch] Cast SDK failed to initialize');
+        alert('Cast feature is not available. Please ensure the page is loaded completely and try again.');
+        return;
+      }
+    }
+
+    // Refresh cast state before starting discovery
+    (this.chromecast as any).refreshCastState();
+
+    this.showDeviceSearch = true;
+    this.isSearchingDevices = true;
+    this.deviceSearchTimedOut = false;
+    this.availableDevices = [];
+    this.deviceSearchTimeRemaining = 60;
+
+    // Start countdown timer
+    this.deviceSearchCountdownTimer = setInterval(() => {
+      this.ngZone.run(() => {
+        this.deviceSearchTimeRemaining--;
+        if (this.deviceSearchTimeRemaining <= 0) {
+          if (this.deviceSearchCountdownTimer) {
+            clearInterval(this.deviceSearchCountdownTimer);
+          }
+        }
+      });
+    }, 1000);
+
+    try {
+      console.log('[Watch] Calling discoverDevices with 60s timeout...');
+      // Start device discovery with 60 second timeout
+      const devices = await this.chromecast.discoverDevices(60000);
+
+      this.ngZone.run(() => {
+        this.isSearchingDevices = false;
+        this.deviceSearchTimedOut = true;
+
+        if (devices.length > 0) {
+          console.log('[Watch] Devices found:', devices);
+          this.availableDevices = devices;
+          // Automatically open the native cast dialog if devices are available
+          this.selectDevice(devices[0]);
+        } else {
+          console.log('[Watch] No devices found after timeout');
+          this.availableDevices = [];
+        }
+
+        if (this.deviceSearchCountdownTimer) {
+          clearInterval(this.deviceSearchCountdownTimer);
+        }
+      });
+    } catch (error) {
+      console.error('[Watch] Device discovery error:', error);
+      this.ngZone.run(() => {
+        this.isSearchingDevices = false;
+        this.deviceSearchTimedOut = true;
+        this.availableDevices = [];
+
+        if (this.deviceSearchCountdownTimer) {
+          clearInterval(this.deviceSearchCountdownTimer);
+        }
+      });
+    }
+  }
+
+  /**
+   * Retry device search
+   */
+  async retryDeviceSearch(): Promise<void> {
+    await this.startDeviceDiscovery();
+  }
+
+  /**
+   * Cancel device search
+   */
+  cancelDeviceSearch(): void {
+    console.log('[Watch] Device search cancelled');
+    this.showDeviceSearch = false;
+    this.isSearchingDevices = false;
+    this.deviceSearchTimedOut = false;
+    this.availableDevices = [];
+
+    if (this.deviceSearchTimer) {
+      clearTimeout(this.deviceSearchTimer);
+      this.deviceSearchTimer = undefined;
+    }
+
+    if (this.deviceSearchCountdownTimer) {
+      clearInterval(this.deviceSearchCountdownTimer);
+      this.deviceSearchCountdownTimer = undefined;
+    }
+  }
+
+  /**
+   * Select a device and initiate connection
+   */
+  async selectDevice(device: CastDevice): Promise<void> {
+    console.log('[Watch] Device selected:', device.name);
+
+    // Close the search overlay
+    this.showDeviceSearch = false;
+    this.isSearchingDevices = false;
+
+    if (this.deviceSearchCountdownTimer) {
+      clearInterval(this.deviceSearchCountdownTimer);
+    }
+
+    // Open the native cast dialog to let user select the device
+    const success = await this.chromecast.requestSession();
+
+    if (success) {
+      console.log('[Watch] Cast session established');
+      // The castState will be updated via the subscription
+      // and loadMediaToCast will be called automatically
+    } else {
+      console.log('[Watch] Cast session not established');
     }
   }
 
@@ -941,6 +1100,14 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
       clearTimeout(this.recordingUrlRefreshTimer);
       this.recordingUrlRefreshTimer = undefined;
     }
+    if (this.deviceSearchTimer) {
+      clearTimeout(this.deviceSearchTimer);
+      this.deviceSearchTimer = undefined;
+    }
+    if (this.deviceSearchCountdownTimer) {
+      clearInterval(this.deviceSearchCountdownTimer);
+      this.deviceSearchCountdownTimer = undefined;
+    }
     if (this.resumeSubscription) {
       this.resumeSubscription.unsubscribe();
       this.resumeSubscription = undefined;
@@ -957,7 +1124,7 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     if (!this.isRecordingMode) {
       this.viewingSession.endSession();
     }
-    
+
     // Cleanup player based on platform (may already be destroyed by ionViewWillLeave)
     if (this.useNativePlayer) {
       // destroy() is safe to call multiple times

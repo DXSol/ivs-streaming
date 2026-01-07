@@ -5,7 +5,7 @@ declare global {
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface User {
       id: string;
-      role: 'viewer' | 'admin';
+      role: 'viewer' | 'admin' | 'superadmin' | 'finance-admin' | 'content-admin';
       email: string;
       name?: string | null;
     }

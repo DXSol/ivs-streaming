@@ -3,6 +3,7 @@ import { ViewWillEnter } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Router, RouterLink } from '@angular/router';
 import {
   IonContent,
   IonHeader,
@@ -62,6 +63,7 @@ interface Event {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     IonContent,
     IonHeader,
     IonTitle,
@@ -92,7 +94,7 @@ export class InvoiceStatementPage implements OnInit, ViewWillEnter {
   // For print header
   currentDate = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private router: Router) {
     addIcons({ downloadOutline, printOutline, filterOutline, refreshOutline });
   }
 
@@ -201,5 +203,11 @@ export class InvoiceStatementPage implements OnInit, ViewWillEnter {
 
   printStatement() {
     window.print();
+  }
+
+  viewInvoice(invoiceId: string) {
+    this.router.navigate(['/invoice', invoiceId], {
+      queryParams: { returnUrl: '/admin/invoice-statement' }
+    });
   }
 }

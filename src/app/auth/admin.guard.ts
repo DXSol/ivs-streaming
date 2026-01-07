@@ -13,7 +13,8 @@ export const adminGuard: CanActivateFn = async () => {
   }
 
   const user = auth.getUserSync();
-  if (!user || user.role !== 'admin') {
+  const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+  if (!user || !adminRoles.includes(user.role)) {
     await router.navigate(['/events']);
     return false;
   }

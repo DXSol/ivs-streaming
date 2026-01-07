@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { pool } from '../db/pool';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { requireAuth, requireRole, requireSuperAdmin } from '../middleware/auth';
 import { getStreamStatus } from '../services/ivs.service';
 
 const router = Router();
@@ -348,6 +349,351 @@ router.put('/user/:userId', requireAuth, requireRole(['admin']), async (req, res
   } catch (err: any) {
     console.error('Failed to update user:', err);
     return res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// GET /admin/pending-usd-invoices - Get all USD payments pending invoice generation
+router.get('/pending-usd-invoices', requireAuth, requireRole(['admin']), async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        p.id as payment_id,
+        p.amount_cents,
+        p.currency,
+        p.created_at as payment_date,
+        p.provider_payment_id,
+        u.id as user_id,
+        u.name as user_name,
+        u.email as user_email,
+        u.country,
+        e.id as event_id,
+        e.title as event_title
+      FROM payments p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN events e ON p.event_id = e.id
+      WHERE p.currency = 'USD'
+        AND p.status = 'success'
+        AND p.invoice_pending = true
+      ORDER BY p.created_at DESC
+    `);
+
+    res.json({ pendingInvoices: rows });
+  } catch (err: any) {
+    console.error('Failed to get pending USD invoices:', err);
+    return res.status(500).json({ error: 'Failed to get pending USD invoices' });
+  }
+});
+
+// POST /admin/invoices/create-for-usd-payment - Create invoice for USD payment with INR amount
+router.post('/invoices/create-for-usd-payment', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const schema = z.object({
+      paymentId: z.string().uuid(),
+      amountInrPaise: z.number().int().positive(),
+      exchangeRate: z.number().positive().optional(),
+    });
+
+    const { paymentId, amountInrPaise, exchangeRate } = schema.parse(req.body);
+
+    // Get payment details
+    const paymentResult = await pool.query(
+      `SELECT p.*, u.name, u.email, u.address, e.title as event_title
+       FROM payments p
+       JOIN users u ON p.user_id = u.id
+       LEFT JOIN events e ON p.event_id = e.id
+       WHERE p.id = $1 AND p.currency = 'USD' AND p.status = 'success'`,
+      [paymentId]
+    );
+
+    if (paymentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'USD payment not found' });
+    }
+
+    const payment = paymentResult.rows[0];
+
+    // Check if invoice already exists
+    const existingInvoice = await pool.query(
+      'SELECT id, invoice_number FROM invoices WHERE payment_id = $1',
+      [paymentId]
+    );
+
+    if (existingInvoice.rows.length > 0) {
+      return res.status(400).json({
+        error: 'Invoice already exists for this payment',
+        invoice: existingInvoice.rows[0]
+      });
+    }
+
+    // Import createInvoice function
+    const { createInvoice } = await import('./invoices');
+
+    // Temporarily change currency to INR and amount to converted amount
+    // Then call createInvoice with INR currency
+    const invoiceType = payment.event_id ? 'event_ticket' : 'season_ticket';
+
+    const invoice = await createInvoice({
+      userId: payment.user_id,
+      paymentId: paymentId,
+      invoiceType: invoiceType as 'event_ticket' | 'season_ticket',
+      eventId: payment.event_id || undefined,
+      amountPaise: amountInrPaise,
+      currency: 'INR', // Force INR for USD payments converted by admin
+    });
+
+    if (!invoice) {
+      return res.status(500).json({ error: 'Failed to create invoice' });
+    }
+
+    // Update payment with exchange rate and mark invoice_pending as false
+    await pool.query(
+      'UPDATE payments SET exchange_rate = $1, invoice_pending = false WHERE id = $2',
+      [exchangeRate || null, paymentId]
+    );
+
+    console.log(`[Admin] Created invoice ${invoice.invoice_number} for USD payment ${paymentId} with INR amount ${amountInrPaise/100}`);
+
+    res.json({
+      success: true,
+      invoice: invoice,
+      message: `Invoice ${invoice.invoice_number} created successfully`
+    });
+  } catch (err: any) {
+    console.error('Failed to create invoice for USD payment:', err);
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid input', details: err.errors });
+    }
+    return res.status(500).json({ error: 'Failed to create invoice for USD payment' });
+  }
+});
+
+// GET /admin/users - List all admin users (superadmin only)
+router.get('/users', requireAuth, requireSuperAdmin, async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, name, email, mobile, role, is_active, created_at
+       FROM users
+       WHERE role IN ('admin', 'superadmin', 'finance-admin', 'content-admin')
+       ORDER BY created_at DESC`
+    );
+
+    res.json({ users: rows });
+  } catch (err: any) {
+    console.error('Failed to list admin users:', err);
+    return res.status(500).json({ error: 'Failed to list admin users' });
+  }
+});
+
+// POST /admin/users - Create a new admin user (superadmin only)
+const createAdminUserSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email(),
+  mobile: z.string().min(1),
+  password: z.string().min(6),
+  role: z.enum(['admin', 'finance-admin', 'content-admin']),
+});
+
+router.post('/users', requireAuth, requireSuperAdmin, async (req, res) => {
+  const parsed = createAdminUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { name, email, mobile, password, role } = parsed.data;
+
+  try {
+    // Check if user already exists
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, password_hash, role, name, mobile, is_active, created_at)
+       VALUES ($1, $2, $3, $4, $5, true, NOW())
+       RETURNING id, name, email, mobile, role, is_active, created_at`,
+      [email, passwordHash, role, name, mobile]
+    );
+
+    res.status(201).json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to create admin user:', err);
+    return res.status(500).json({ error: 'Failed to create admin user' });
+  }
+});
+
+// PUT /admin/users/:userId/role - Update user role (superadmin only)
+const updateUserRoleSchema = z.object({
+  role: z.enum(['admin', 'finance-admin', 'content-admin']),
+});
+
+router.put('/users/:userId/role', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+  const parsed = updateUserRoleSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { role } = parsed.data;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot change role of superadmin' });
+    }
+
+    // Update role
+    const { rows } = await pool.query(
+      `UPDATE users SET role = $1 WHERE id = $2
+       RETURNING id, name, email, role, created_at`,
+      [role, userId]
+    );
+
+    res.json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to update user role:', err);
+    return res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// DELETE /admin/users/:userId - Delete an admin user (superadmin only)
+router.delete('/users/:userId', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot delete superadmin' });
+    }
+
+    // Delete user and all related data
+    await pool.query('DELETE FROM tickets WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM season_tickets WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM payments WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM event_comments WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM ivs_access_logs WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM invoices WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    res.json({ ok: true, message: 'User deleted successfully' });
+  } catch (err: any) {
+    console.error('Failed to delete admin user:', err);
+    return res.status(500).json({ error: 'Failed to delete admin user' });
+  }
+});
+
+// PUT /admin/users/:userId - Update admin user details (superadmin only)
+const updateAdminUserSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  email: z.string().email().optional(),
+  mobile: z.string().min(1).optional(),
+});
+
+router.put('/users/:userId', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+  const parsed = updateAdminUserSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { name, email, mobile } = parsed.data;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot update superadmin details' });
+    }
+
+    // Build update query dynamically
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
+    }
+    if (email !== undefined) {
+      updates.push(`email = $${paramCount++}`);
+      values.push(email);
+    }
+    if (mobile !== undefined) {
+      updates.push(`mobile = $${paramCount++}`);
+      values.push(mobile);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(userId);
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING id, name, email, mobile, role, is_active, created_at`;
+
+    const { rows } = await pool.query(query, values);
+    res.json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to update admin user:', err);
+    return res.status(500).json({ error: 'Failed to update admin user' });
+  }
+});
+
+// PUT /admin/users/:userId/status - Toggle admin user active status (superadmin only)
+const toggleUserStatusSchema = z.object({
+  is_active: z.boolean(),
+});
+
+router.put('/users/:userId/status', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+  const parsed = toggleUserStatusSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { is_active } = parsed.data;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot disable superadmin' });
+    }
+
+    // Update status
+    const { rows } = await pool.query(
+      `UPDATE users SET is_active = $1 WHERE id = $2
+       RETURNING id, name, email, mobile, role, is_active, created_at`,
+      [is_active, userId]
+    );
+
+    res.json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to toggle user status:', err);
+    return res.status(500).json({ error: 'Failed to toggle user status' });
   }
 });
 

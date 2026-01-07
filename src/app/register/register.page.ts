@@ -177,7 +177,7 @@ export class RegisterPage {
           prefillEmail: user?.email,
         });
 
-        const verifyResult = await this.razorpay.verifySeasonPayment(paymentResult, order.discountedPaise);
+        const verifyResult = await this.razorpay.verifySeasonPayment(paymentResult, order.discountedAmount, order.currency);
         this.pendingPurchase.clearPendingPurchase();
         if (verifyResult.invoiceId) {
           await this.router.navigate(['/invoice', verifyResult.invoiceId], {

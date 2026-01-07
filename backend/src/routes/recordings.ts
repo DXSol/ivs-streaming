@@ -203,7 +203,7 @@ router.get('/:eventId/playback-url', requireAuth, async (req, res) => {
   try {
     // 1. Fetch event details
     const eventResult = await pool.query(
-      `SELECT id, title, ends_at, event_type, ivs_channel_arn 
+      `SELECT id, title, starts_at, ends_at, event_type, ivs_channel_arn
        FROM events WHERE id = $1`,
       [eventId]
     );
@@ -228,46 +228,66 @@ router.get('/:eventId/playback-url', requireAuth, async (req, res) => {
       });
     }
 
-    // 4. Check if recording has expired (3 days after event end)
-    if (isRecordingExpired(endsAt)) {
-      const expiryDate = getRecordingExpiryDate(endsAt);
-      return res.status(410).json({ 
-        error: 'Recording expired',
-        message: `Recording was available until ${expiryDate.toISOString()}`,
-        expiredAt: expiryDate.toISOString()
-      });
-    }
+    // 4. Validate user has access and get payment date for expiry calculation
+    // Admin has unrestricted access to all recordings
+    let hasValidTicket = user.role === 'admin';
+    let paymentDate: Date | undefined;
 
-    // 5. Validate user has access (paid ticket or season ticket)
-    const startsAt = new Date(event.starts_at);
-    
-    // Check for individual ticket
-    const ticketResult = await pool.query(
-      `SELECT status FROM tickets WHERE user_id = $1 AND event_id = $2 AND status = 'paid'`,
-      [user.id, eventId]
-    );
-
-    let hasValidTicket = ticketResult.rows.length > 0;
-
-    // If no individual ticket, check for season ticket
     if (!hasValidTicket) {
-      const seasonTicketResult = await pool.query(
-        `SELECT status, purchased_at FROM season_tickets 
-         WHERE user_id = $1 AND status = 'paid'`,
-        [user.id]
+      const startsAt = new Date(event.starts_at);
+
+      // Check for individual ticket and get payment date
+      const ticketResult = await pool.query(
+        `SELECT t.status, p.created_at as payment_date
+         FROM tickets t
+         LEFT JOIN payments p ON p.event_id = t.event_id AND p.user_id = t.user_id AND p.status = 'success'
+         WHERE t.user_id = $1 AND t.event_id = $2 AND t.status = 'paid'
+         ORDER BY p.created_at DESC
+         LIMIT 1`,
+        [user.id, eventId]
       );
-      const seasonTicket = seasonTicketResult.rows[0];
-      if (seasonTicket) {
-        // Season ticket grants access to events that start on or after purchase date
-        const purchasedAt = new Date(seasonTicket.purchased_at);
-        if (startsAt >= purchasedAt) {
-          hasValidTicket = true;
+
+      if (ticketResult.rows.length > 0) {
+        hasValidTicket = true;
+        paymentDate = ticketResult.rows[0].payment_date ? new Date(ticketResult.rows[0].payment_date) : undefined;
+      }
+
+      // If no individual ticket, check for season ticket
+      if (!hasValidTicket) {
+        const seasonTicketResult = await pool.query(
+          `SELECT status, purchased_at FROM season_tickets
+           WHERE user_id = $1 AND status = 'paid'`,
+          [user.id]
+        );
+        const seasonTicket = seasonTicketResult.rows[0];
+        if (seasonTicket) {
+          // Season ticket grants access to events that start on or after purchase date
+          const purchasedAt = new Date(seasonTicket.purchased_at);
+          if (startsAt >= purchasedAt) {
+            hasValidTicket = true;
+            // Use season ticket purchase date if no individual ticket payment date
+            if (!paymentDate) {
+              paymentDate = purchasedAt;
+            }
+          }
         }
       }
     }
 
     if (!hasValidTicket) {
       return res.status(403).json({ error: 'No valid ticket for this event' });
+    }
+
+    // 5. Check if recording has expired
+    // For upcoming events: expiry = event_end + 3 days
+    // For past events: expiry = payment_date + 3 days
+    if (isRecordingExpired(endsAt, paymentDate)) {
+      const expiryDate = getRecordingExpiryDate(endsAt, paymentDate);
+      return res.status(410).json({
+        error: 'Recording expired',
+        message: `Recording was available until ${expiryDate.toISOString()}`,
+        expiredAt: expiryDate.toISOString()
+      });
     }
 
     // 6. Find all recording sessions for this event
@@ -325,7 +345,7 @@ router.get('/:eventId/playback-url', requireAuth, async (req, res) => {
     );
 
     // 9. Return signed URLs for all sessions
-    const recordingExpiryDate = getRecordingExpiryDate(endsAt);
+    const recordingExpiryDate = getRecordingExpiryDate(endsAt, paymentDate);
     
     return res.json({
       // For backward compatibility, include first session as primary playback URL
@@ -443,6 +463,79 @@ router.get('/:eventId/status', requireAuth, async (req, res) => {
   } catch (error: any) {
     console.error('[Recordings] Error checking status:', error);
     return res.status(500).json({ error: 'Failed to check recording status' });
+  }
+});
+
+/**
+ * GET /api/recordings/expiry-info
+ * Get recording expiry information for all events the user has access to.
+ * Returns per-user expiry dates based on payment dates.
+ */
+router.get('/expiry-info', requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user;
+
+    // Get all paid events
+    const eventsResult = await pool.query(
+      'SELECT id, ends_at FROM events WHERE event_type = $1',
+      ['paid']
+    );
+
+    const expiryInfo: Record<string, { expiresAt: string; isExpired: boolean }> = {};
+
+    // For each event, check if user has access and calculate expiry
+    for (const event of eventsResult.rows) {
+      const eventId = event.id;
+      const endsAt = new Date(event.ends_at);
+      let hasAccess = false;
+      let paymentDate: Date | undefined;
+
+      // Check for season ticket
+      const seasonTicketResult = await pool.query(
+        'SELECT created_at FROM season_tickets WHERE user_id = $1 AND status = $2 LIMIT 1',
+        [user.id, 'active']
+      );
+
+      if (seasonTicketResult.rows.length > 0) {
+        hasAccess = true;
+        paymentDate = new Date(seasonTicketResult.rows[0].created_at);
+      } else {
+        // Check for individual ticket with payment date
+        const ticketResult = await pool.query(
+          `SELECT t.status, p.created_at as payment_date
+           FROM tickets t
+           LEFT JOIN payments p ON p.event_id = t.event_id AND p.user_id = t.user_id AND p.status = 'success'
+           WHERE t.user_id = $1 AND t.event_id = $2 AND t.status = 'paid'
+           ORDER BY p.created_at DESC
+           LIMIT 1`,
+          [user.id, eventId]
+        );
+
+        if (ticketResult.rows.length > 0) {
+          hasAccess = true;
+          paymentDate = ticketResult.rows[0].payment_date
+            ? new Date(ticketResult.rows[0].payment_date)
+            : undefined;
+        }
+      }
+
+      // Only include events the user has access to
+      if (hasAccess) {
+        const isExpired = isRecordingExpired(endsAt, paymentDate);
+        const expiresAt = getRecordingExpiryDate(endsAt, paymentDate);
+
+        expiryInfo[eventId] = {
+          expiresAt: expiresAt.toISOString(),
+          isExpired,
+        };
+      }
+    }
+
+    return res.json({ expiryInfo });
+
+  } catch (error: any) {
+    console.error('[Recordings] Error getting expiry info:', error);
+    return res.status(500).json({ error: 'Failed to get recording expiry information' });
   }
 });
 

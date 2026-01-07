@@ -1,0 +1,186 @@
+.page-header {
+  margin-bottom: 24px;
+
+  h1 {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 0 0 8px 0;
+    color: var(--ion-color-primary);
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--ion-color-medium);
+    margin: 0;
+  }
+}
+
+.error-banner {
+  padding: 16px;
+  background-color: var(--ion-color-danger);
+  color: white;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    font-size: 14px;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+
+  h2 {
+    font-size: 24px;
+    margin: 0 0 12px 0;
+    color: var(--ion-color-dark);
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    margin-bottom: 24px;
+  }
+}
+
+.invoices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.invoice-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  ion-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 20px;
+  }
+
+  .payment-badge {
+    font-size: 12px;
+    padding: 4px 12px;
+    background-color: var(--ion-color-primary);
+    color: white;
+    border-radius: 12px;
+    font-weight: normal;
+  }
+}
+
+.invoice-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ion-color-light);
+
+  &.highlight {
+    background-color: var(--ion-color-light);
+    padding: 12px;
+    border-radius: 4px;
+    border-bottom: none;
+    font-weight: bold;
+  }
+
+  .label {
+    font-weight: 500;
+    color: var(--ion-color-medium);
+    font-size: 14px;
+  }
+
+  .value {
+    font-weight: 600;
+    color: var(--ion-color-dark);
+
+    &.code {
+      font-family: monospace;
+      font-size: 12px;
+    }
+  }
+}
+
+.exchange-rate-section {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: var(--ion-color-light);
+  border-radius: 8px;
+
+  ion-item {
+    --background: transparent;
+    --padding-start: 0;
+    --inner-padding-end: 0;
+  }
+
+  ion-label {
+    font-weight: 600;
+    color: var(--ion-color-dark);
+  }
+
+  ion-input {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 8px;
+  }
+
+  .calculated-amount {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    padding: 12px;
+    background-color: var(--ion-color-success);
+    color: white;
+    border-radius: 4px;
+
+    .label {
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .value {
+      font-weight: bold;
+      font-size: 20px;
+    }
+  }
+}
+
+ion-button {
+  margin-top: 16px;
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .invoices-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .invoices-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

@@ -20,7 +20,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export function requireRole(roles: Array<'viewer' | 'admin'>) {
+export function requireRole(roles: Array<'viewer' | 'admin' | 'superadmin' | 'finance-admin' | 'content-admin'>) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
     if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Forbidden' });
@@ -30,6 +30,33 @@ export function requireRole(roles: Array<'viewer' | 'admin'>) {
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+  const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+  if (!adminRoles.includes(req.user.role)) return res.status(403).json({ error: 'Admin access required' });
+  return next();
+}
+
+export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'Super admin access required' });
+  return next();
+}
+
+export function requireFullAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') return res.status(403).json({ error: 'Full admin access required' });
+  return next();
+}
+
+export function requireFinanceAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const financeRoles = ['superadmin', 'admin', 'finance-admin'];
+  if (!financeRoles.includes(req.user.role)) return res.status(403).json({ error: 'Finance admin access required' });
+  return next();
+}
+
+export function requireContentAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const contentRoles = ['superadmin', 'admin', 'content-admin'];
+  if (!contentRoles.includes(req.user.role)) return res.status(403).json({ error: 'Content admin access required' });
   return next();
 }

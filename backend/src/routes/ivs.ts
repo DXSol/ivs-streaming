@@ -42,27 +42,33 @@ router.get('/playback-token', requireAuth, async (req, res) => {
     });
   }
 
-  // Check for individual ticket OR season ticket
-  const ticketResult = await pool.query(
-    'SELECT status FROM tickets WHERE user_id = $1 AND event_id = $2',
-    [user.id, eventId]
-  );
+  // Admin roles have unrestricted access to all events
+  const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+  let hasValidTicket = adminRoles.includes(user.role);
 
-  let hasValidTicket = ticketResult.rows[0]?.status === 'paid';
-
-  // If no individual ticket, check for season ticket
+  // Check for individual ticket OR season ticket (if not admin)
   if (!hasValidTicket) {
-    const seasonTicketResult = await pool.query(
-      `SELECT status, purchased_at FROM season_tickets 
-       WHERE user_id = $1 AND status = 'paid'`,
-      [user.id]
+    const ticketResult = await pool.query(
+      'SELECT status FROM tickets WHERE user_id = $1 AND event_id = $2',
+      [user.id, eventId]
     );
-    const seasonTicket = seasonTicketResult.rows[0];
-    if (seasonTicket) {
-      // Season ticket grants access to events that start on or after purchase date
-      const purchasedAt = new Date(seasonTicket.purchased_at);
-      if (startsAt >= purchasedAt) {
-        hasValidTicket = true;
+
+    hasValidTicket = ticketResult.rows[0]?.status === 'paid';
+
+    // If no individual ticket, check for season ticket
+    if (!hasValidTicket) {
+      const seasonTicketResult = await pool.query(
+        `SELECT status, purchased_at FROM season_tickets
+         WHERE user_id = $1 AND status = 'paid'`,
+        [user.id]
+      );
+      const seasonTicket = seasonTicketResult.rows[0];
+      if (seasonTicket) {
+        // Season ticket grants access to events that start on or after purchase date
+        const purchasedAt = new Date(seasonTicket.purchased_at);
+        if (startsAt >= purchasedAt) {
+          hasValidTicket = true;
+        }
       }
     }
   }

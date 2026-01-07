@@ -7,7 +7,11 @@
     </ion-buttons>
     <ion-title>Tax Invoice</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="printInvoice()" color="primary">
+      <ion-button (click)="downloadPdf()" fill="solid" color="primary">
+        <ion-icon name="document-outline" slot="start"></ion-icon>
+        PDF
+      </ion-button>
+      <ion-button (click)="printInvoice()" fill="clear">
         <ion-icon name="print-outline" slot="start"></ion-icon>
         Print
       </ion-button>
@@ -31,104 +35,184 @@
 
     <!-- Invoice Content -->
     <div *ngIf="!isLoading && invoice" class="invoice-content">
-      <!-- Logo (only for new format invoices) -->
-      <div *ngIf="isNewFormat" class="invoice-logo">
-        <img src="assets/hope-logo.png" alt="Hope Logo" />
-      </div>
-
-      <!-- Company Details -->
-      <div class="company-section">
-        <h2>{{ invoice.company_name }}</h2>
-        <p>{{ invoice.company_address }}</p>
-        <p *ngIf="invoice.company_phone">{{ invoice.company_phone }}</p>
-        <p><strong>GSTIN:</strong> {{ invoice.company_gstin }}</p>
-      </div>
-
-      <!-- Invoice Header (Tax Invoice title - centered, below company details) -->
-      <div class="invoice-header">
-        <h1>TAX INVOICE</h1>
-      </div>
-
-      <!-- Invoice Meta -->
-      <div class="invoice-meta-section">
-        <div class="meta-row">
-          <div class="meta-item">
-            <label>Invoice Number</label>
-            <span>{{ invoice.invoice_number }}</span>
+      <!-- Header Section with Logo and Invoice Metadata -->
+      <div class="invoice-top-section">
+        <!-- Left: Logo and Company Details -->
+        <div class="company-header">
+          <div class="logo-container">
+            <img [src]="isNewFormat ? 'assets/hope-logo.png' : 'assets/dx-solutions-logo-transparent.png'"
+                 [alt]="invoice.company_name + ' Logo'" />
           </div>
-          <div class="meta-item">
-            <label>Invoice Date</label>
-            <span>{{ formatDate(invoice.invoice_date) }}</span>
+          <div class="company-details">
+            <h2 class="company-name">{{ invoice.company_name }}</h2>
+            <p *ngIf="invoice.company_registration_number">Regd Off: {{ invoice.company_registration_number }}</p>
+            <p class="company-address">{{ invoice.company_address }}</p>
+            <p *ngIf="invoice.company_udyam_number">UDYAM : {{ invoice.company_udyam_number }}</p>
+            <p *ngIf="invoice.company_gstin">
+              <strong>GSTIN:</strong> {{ invoice.company_gstin }} |
+              <span *ngIf="invoice.company_state_name && invoice.company_state_code">
+                State Name: {{ invoice.company_state_name }}, Code: {{ invoice.company_state_code }}
+              </span>
+            </p>
+            <p *ngIf="invoice.company_cin"><strong>CIN:</strong> {{ invoice.company_cin }}</p>
+            <p *ngIf="invoice.company_email">E-Mail : {{ invoice.company_email }}</p>
           </div>
+        </div>
+
+        <!-- Right: Invoice Metadata Box -->
+        <div class="invoice-metadata-box">
+          <table class="metadata-table">
+            <tr>
+              <td class="meta-label">Invoice No.</td>
+              <td class="meta-value">{{ invoice.invoice_number }}</td>
+            </tr>
+            <tr>
+              <td class="meta-label">Dated</td>
+              <td class="meta-value">{{ formatDate(invoice.invoice_date) }}</td>
+            </tr>
+            <tr>
+              <td class="meta-label">Reference No. & Date.</td>
+              <td class="meta-value">
+                <span *ngIf="invoice.razorpay_payment_id">{{ invoice.razorpay_payment_id }}</span>
+                <span *ngIf="!invoice.razorpay_payment_id">-</span>
+                <span *ngIf="invoice.payment_date"> / {{ formatDate(invoice.payment_date) }}</span>
+              </td>
+            </tr>
+          </table>
         </div>
       </div>
 
-      <!-- Bill To -->
-      <div class="bill-to-section">
-        <h3>Bill To:</h3>
-        <p class="customer-name">{{ invoice.customer_name || 'Customer' }}</p>
+      <!-- Tax Invoice Title -->
+      <div class="invoice-title-bar">
+        <h1>Tax Invoice</h1>
+      </div>
+
+      <!-- Buyer Section -->
+      <div class="buyer-section">
+        <div class="buyer-label">Buyer (Bill to)</div>
+        <div class="buyer-details">
+          <p class="buyer-name">{{ invoice.customer_name || 'Customer' }}</p>
+          <p class="buyer-ticket-type">{{ getInvoiceTypeLabel(invoice.invoice_type) }}</p>
+          <p *ngIf="invoice.company_state_name && invoice.company_state_code">
+            State: {{ invoice.company_state_name }}, Code: {{ invoice.company_state_code }}
+          </p>
+        </div>
       </div>
 
       <!-- Line Items Table -->
       <div class="table-wrapper">
-      <table class="invoice-table">
-        <thead>
-          <tr>
-            <th class="description-col">Description</th>
-            <th class="sac-col">SAC</th>
-            <th class="qty-col">Qty</th>
-            <th class="rate-col">Rate (₹)</th>
-            <th class="amount-col">Amount (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>
-              {{ getInvoiceTypeLabel(invoice.invoice_type) }}
-              <span *ngIf="invoice.event_title" class="event-name"> - {{ invoice.event_title }}</span>
-            </td>
-            <td class="sac-col">{{ invoice.sac_code || '998439' }}</td>
-            <td class="qty-col">1</td>
-            <td class="rate-col">{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</td>
-            <td class="amount-col">{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      </div>
+        <table class="invoice-table">
+          <thead>
+            <tr>
+              <th class="sl-col">Sl<br/>No.</th>
+              <th class="description-col">Description of<br/>Services</th>
+              <th class="hsn-col">HSN/SAC</th>
+              <th class="qty-col">Quantity</th>
+              <th class="rate-col">Rate</th>
+              <th class="amount-col">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="sl-col">1</td>
+              <td class="description-col">
+                <strong>{{ invoice.event_title || getInvoiceTypeLabel(invoice.invoice_type) }}</strong>
+                <div *ngIf="invoice.event_title" class="event-date">{{ formatDate(invoice.invoice_date) }} Concert</div>
+              </td>
+              <td class="hsn-col">{{ invoice.sac_code || '999629' }}</td>
+              <td class="qty-col">1</td>
+              <td class="rate-col">{{ (invoice.subtotal_paise / 100).toFixed(2) }}</td>
+              <td class="amount-col">{{ (invoice.subtotal_paise / 100).toFixed(2) }}</td>
+            </tr>
 
-      <!-- Tax Summary -->
-      <div class="tax-summary">
-        <div class="summary-row">
-          <span>Subtotal</span>
-          <span>₹{{ invoice.subtotal_paise / 100 | number:'1.2-2' }}</span>
-        </div>
-        <div class="summary-row" *ngIf="invoice.cgst_paise > 0">
-          <span>CGST (9%)</span>
-          <span>₹{{ invoice.cgst_paise / 100 | number:'1.2-2' }}</span>
-        </div>
-        <div class="summary-row" *ngIf="invoice.sgst_paise > 0">
-          <span>SGST (9%)</span>
-          <span>₹{{ invoice.sgst_paise / 100 | number:'1.2-2' }}</span>
-        </div>
-        <div class="summary-row" *ngIf="invoice.igst_paise > 0">
-          <span>IGST (18%)</span>
-          <span>₹{{ invoice.igst_paise / 100 | number:'1.2-2' }}</span>
-        </div>
-        <div class="summary-row total">
-          <span>Total</span>
-          <span>₹{{ invoice.total_paise / 100 | number:'1.2-2' }}</span>
-        </div>
+            <!-- GST Rows within table -->
+            <tr class="tax-row">
+              <td colspan="5" class="tax-label-cell">
+                <span class="tax-label-right">CGST 9%</span>
+              </td>
+              <td class="amount-col">{{ (invoice.cgst_paise / 100).toFixed(2) }}</td>
+            </tr>
+            <tr class="tax-row">
+              <td colspan="5" class="tax-label-cell">
+                <span class="tax-label-right">SGST 9%</span>
+              </td>
+              <td class="amount-col">{{ (invoice.sgst_paise / 100).toFixed(2) }}</td>
+            </tr>
+            <tr class="tax-row">
+              <td colspan="5" class="tax-label-cell">
+                <span class="tax-label-indent">Less :</span>
+                <span class="tax-label-right">Rounded Off +/-</span>
+              </td>
+              <td class="amount-col">{{ getRoundingAdjustment() }}</td>
+            </tr>
+
+            <!-- Empty rows for spacing -->
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+            <tr class="spacer-row"><td colspan="6">&nbsp;</td></tr>
+
+            <!-- Total Row -->
+            <tr class="total-row">
+              <td colspan="5" class="total-label">Total</td>
+              <td class="amount-col total-amount"><strong>{{ (invoice.total_paise / 100).toFixed(2) }} ₹</strong></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Amount in Words -->
-      <div class="amount-words">
-        <strong>Amount in Words:</strong> {{ getAmountInWords() }}
+      <div class="amount-words-section">
+        <div class="amount-words-label">Amount Chargeable (in words)</div>
+        <div class="amount-words-value"><strong>{{ getAmountInWords() }}</strong></div>
+        <div class="amount-words-footer">E. & O.E.</div>
       </div>
 
-      <!-- Footer -->
-      <div class="invoice-footer">
-        <p>This is a computer-generated invoice and does not require a signature.</p>
-        <p class="thank-you">Thank you for your purchase!</p>
+      <!-- Footer Section with Bank Details and PAN -->
+      <div class="invoice-footer-section">
+        <div class="footer-left">
+          <div class="bank-details" *ngIf="invoice.company_bank_name">
+            <h4>Company's Bank Details</h4>
+            <table class="bank-table">
+              <tr>
+                <td class="bank-label">A/c Holder's Name :</td>
+                <td class="bank-value">{{ invoice.company_name }}</td>
+              </tr>
+              <tr>
+                <td class="bank-label">Bank Name</td>
+                <td class="bank-value">: {{ invoice.company_bank_name }}</td>
+              </tr>
+              <tr>
+                <td class="bank-label">A/c No.</td>
+                <td class="bank-value">: {{ invoice.company_bank_account_number }}</td>
+              </tr>
+              <tr>
+                <td class="bank-label">Branch & IFS Code :</td>
+                <td class="bank-value">{{ invoice.company_bank_branch }} & {{ invoice.company_bank_ifsc_code }}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="pan-section" *ngIf="invoice.company_pan">
+            <table class="pan-table">
+              <tr>
+                <td class="pan-label">Company's PAN</td>
+                <td class="pan-sep">:</td>
+                <td class="pan-value"><strong>{{ invoice.company_pan }}</strong></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="footer-right">
+          <p class="company-for">for <strong>{{ invoice.company_name }}</strong></p>
+          <div class="signature-section">
+            <p>Authorised Signatory</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -4,6 +4,8 @@ import { pool } from '../db/pool';
 import { requireAuth } from '../middleware/auth';
 import { createOrder, verifyPaymentSignature, getRazorpayKeyId, verifyWebhookSignature, fetchOrder } from '../services/razorpay.service';
 import { createInvoice } from './invoices';
+import { sendUSDPaymentNotification } from '../services/email.service';
+import { env } from '../config/env';
 
 const router = Router();
 
@@ -187,8 +189,37 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
           amountPaise: amount,
           currency: currency || 'INR',
         });
-        invoiceId = invoice.id;
-        console.log(`Invoice created for payment ${paymentId}: ${invoice.invoice_number}`);
+        if (invoice) {
+          invoiceId = invoice.id;
+          console.log(`Invoice created for payment ${paymentId}: ${invoice.invoice_number}`);
+        } else {
+          console.log(`Invoice creation skipped for USD payment ${paymentId} - pending manual creation`);
+
+          // Send admin notification for USD payment
+          if (currency === 'USD') {
+            try {
+              const userResult = await pool.query('SELECT name, email FROM users WHERE id = $1', [userId]);
+              const eventResult = await pool.query('SELECT title FROM events WHERE id = $1', [eventId]);
+              const user = userResult.rows[0];
+              const event = eventResult.rows[0];
+
+              await sendUSDPaymentNotification({
+                adminEmail: env.admin.notificationEmail,
+                customerName: user?.name || 'Unknown',
+                customerEmail: user?.email || 'Unknown',
+                paymentId: razorpay_payment_id,
+                amountUSD: amount / 100, // Convert cents to dollars
+                eventTitle: event?.title,
+                ticketType: 'event_ticket',
+                paymentDate: new Date(),
+              });
+
+              console.log(`Admin notification sent for USD event ticket payment: ${razorpay_payment_id}`);
+            } catch (emailErr) {
+              console.error('Failed to send admin notification:', emailErr);
+            }
+          }
+        }
       } catch (invoiceErr) {
         console.error('Failed to create invoice:', invoiceErr);
         // Don't fail the payment verification if invoice creation fails
@@ -203,32 +234,61 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 });
 
 // GET /razorpay/season-ticket-price - Get season ticket price (sum of upcoming paid events with configurable discount)
-router.get('/season-ticket-price', async (_req, res) => {
+router.get('/season-ticket-price', requireAuth, async (req, res) => {
+  const userId = req.user!.id;
+
   try {
+    // Get user's country
+    const userResult = await pool.query('SELECT country FROM users WHERE id = $1', [userId]);
+    const userCountry = userResult.rows[0]?.country;
+    const isIndia = isIndianUser(userCountry);
+
     // Get discount percentage from environment variable (default to 10 if not set)
     const discountPercent = parseInt(process.env.SEASON_TICKET_DISCOUNT_PERCENT || '10', 10);
     const discountMultiplier = (100 - discountPercent) / 100;
 
     // Only include upcoming paid events (ends_at > now AND event_type = 'paid')
     const { rows } = await pool.query(
-      `SELECT COALESCE(SUM(price_paise), 0) as total 
-       FROM events 
+      `SELECT COALESCE(SUM(price_paise), 0) as total
+       FROM events
        WHERE ends_at > NOW() AND event_type = 'paid'`
     );
     const totalPaise = parseInt(rows[0].total, 10);
     const discountedPaise = Math.round(totalPaise * discountMultiplier);
 
     const countResult = await pool.query(
-      `SELECT COUNT(*) as count 
-       FROM events 
+      `SELECT COUNT(*) as count
+       FROM events
        WHERE ends_at > NOW() AND event_type = 'paid'`
     );
-    
+
+    const eventCount = parseInt(countResult.rows[0].count, 10);
+
+    // For international users, calculate USD pricing
+    if (!isIndia) {
+      const pricePerEventUSD = 10; // $10 per event
+      const totalUSDCents = pricePerEventUSD * eventCount * 100; // Convert to cents
+      const discountedUSDCents = Math.round(totalUSDCents * discountMultiplier);
+
+      return res.json({
+        originalCents: totalUSDCents,
+        discountedCents: discountedUSDCents,
+        discountPercent,
+        eventCount,
+        currency: 'USD',
+        displayPrice: `$${(discountedUSDCents / 100).toFixed(2)}`,
+        isInternational: true,
+      });
+    }
+
     return res.json({
       originalPaise: totalPaise,
       discountedPaise,
       discountPercent,
-      eventCount: countResult.rows[0].count,
+      eventCount,
+      currency: 'INR',
+      displayPrice: `₹${(discountedPaise / 100).toFixed(0)}`,
+      isInternational: false,
     });
   } catch (err: any) {
     console.error('Failed to get season ticket price:', err);
@@ -241,28 +301,62 @@ router.post('/create-season-order', requireAuth, async (req, res) => {
   const userId = req.user!.id;
 
   try {
+    // Get user's country
+    const userResult = await pool.query('SELECT country FROM users WHERE id = $1', [userId]);
+    const userCountry = userResult.rows[0]?.country;
+    const isIndia = isIndianUser(userCountry);
+
     // Get discount percentage from environment variable (default to 10 if not set)
     const discountPercent = parseInt(process.env.SEASON_TICKET_DISCOUNT_PERCENT || '10', 10);
     const discountMultiplier = (100 - discountPercent) / 100;
 
-    // Calculate season ticket price (only upcoming events)
-    const { rows } = await pool.query(
-      'SELECT COALESCE(SUM(price_paise), 0) as total FROM events WHERE ends_at > NOW()'
+    // Get event count for pricing calculation
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as count FROM events WHERE ends_at > NOW() AND event_type = 'paid'`
     );
-    const totalPaise = parseInt(rows[0].total, 10);
-    const discountedPaise = Math.round(totalPaise * discountMultiplier);
+    const eventCount = parseInt(countResult.rows[0].count, 10);
 
-    if (discountedPaise <= 0) {
+    if (eventCount <= 0) {
       return res.status(400).json({ error: 'No upcoming events available for season ticket' });
     }
 
+    let amount: number;
+    let currency: string;
+    let originalAmount: number;
+    let discountedAmount: number;
+
+    if (isIndia) {
+      // Calculate INR pricing based on sum of event prices
+      const { rows } = await pool.query(
+        'SELECT COALESCE(SUM(price_paise), 0) as total FROM events WHERE ends_at > NOW() AND event_type = \'paid\''
+      );
+      const totalPaise = parseInt(rows[0].total, 10);
+      const discountedPaise = Math.round(totalPaise * discountMultiplier);
+
+      amount = discountedPaise;
+      currency = 'INR';
+      originalAmount = totalPaise;
+      discountedAmount = discountedPaise;
+    } else {
+      // Calculate USD pricing: $10 per event
+      const pricePerEventUSD = 10;
+      const totalUSDCents = pricePerEventUSD * eventCount * 100; // Convert to cents
+      const discountedUSDCents = Math.round(totalUSDCents * discountMultiplier);
+
+      amount = discountedUSDCents;
+      currency = 'USD';
+      originalAmount = totalUSDCents;
+      discountedAmount = discountedUSDCents;
+    }
+
     const order = await createOrder({
-      amountPaise: discountedPaise,
-      currency: 'INR',
+      amountPaise: amount, // For USD, this is cents
+      currency,
       receipt: `season_${Date.now()}`,
       notes: {
         userId,
         type: 'season_ticket',
+        isInternational: String(!isIndia),
       },
     });
 
@@ -271,8 +365,9 @@ router.post('/create-season-order', requireAuth, async (req, res) => {
       amount: order.amount,
       currency: order.currency,
       keyId: getRazorpayKeyId(),
-      originalPaise: totalPaise,
-      discountedPaise,
+      originalAmount,
+      discountedAmount,
+      isInternational: !isIndia,
     });
   } catch (err: any) {
     console.error('Razorpay create season order error:', err);
@@ -286,6 +381,7 @@ const verifySeasonPaymentSchema = z.object({
   razorpay_payment_id: z.string().min(1),
   razorpay_signature: z.string().min(1),
   amountPaise: z.number().int().positive(),
+  currency: z.string().min(1).optional().default('INR'),
 });
 
 router.post('/verify-season-payment', requireAuth, async (req, res) => {
@@ -294,7 +390,7 @@ router.post('/verify-season-payment', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   }
 
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amountPaise } = parsed.data;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amountPaise, currency } = parsed.data;
   const userId = req.user!.id;
 
   // Verify signature
@@ -314,10 +410,10 @@ router.post('/verify-season-payment', requireAuth, async (req, res) => {
         'razorpay',
         razorpay_payment_id,
         userId,
-        amountPaise, // Store in paise as-is
-        'INR',
+        amountPaise, // Store in paise/cents as-is
+        currency,
         'success',
-        { razorpay_order_id, razorpay_payment_id, razorpay_signature, type: 'season_ticket' },
+        { razorpay_order_id, razorpay_payment_id, razorpay_signature, type: 'season_ticket', currency },
       ]
     );
     const paymentId = paymentResult.rows[0]?.id;
@@ -339,10 +435,36 @@ router.post('/verify-season-payment', requireAuth, async (req, res) => {
           paymentId,
           invoiceType: 'season_ticket',
           amountPaise,
-          currency: 'INR',
+          currency,
         });
-        invoiceId = invoice.id;
-        console.log(`Invoice created for season ticket payment ${paymentId}: ${invoice.invoice_number}`);
+        if (invoice) {
+          invoiceId = invoice.id;
+          console.log(`Invoice created for season ticket payment ${paymentId}: ${invoice.invoice_number}`);
+        } else {
+          console.log(`Invoice creation skipped for USD payment ${paymentId} - pending manual creation`);
+
+          // Send admin notification for USD payment
+          if (currency === 'USD') {
+            try {
+              const userResult = await pool.query('SELECT name, email FROM users WHERE id = $1', [userId]);
+              const user = userResult.rows[0];
+
+              await sendUSDPaymentNotification({
+                adminEmail: env.admin.notificationEmail,
+                customerName: user?.name || 'Unknown',
+                customerEmail: user?.email || 'Unknown',
+                paymentId: razorpay_payment_id,
+                amountUSD: amountPaise / 100, // Convert cents to dollars
+                ticketType: 'season_ticket',
+                paymentDate: new Date(),
+              });
+
+              console.log(`Admin notification sent for USD season ticket payment: ${razorpay_payment_id}`);
+            } catch (emailErr) {
+              console.error('Failed to send admin notification:', emailErr);
+            }
+          }
+        }
       } catch (invoiceErr) {
         console.error('Failed to create invoice for season ticket:', invoiceErr);
         // Don't fail the payment verification if invoice creation fails
@@ -430,7 +552,33 @@ router.post('/webhook', async (req: Request, res: Response) => {
             amountPaise: amount,
             currency: currency
           });
-          console.log(`[Razorpay Webhook] Invoice generated: ${invoice.invoice_number}`);
+          if (invoice) {
+            console.log(`[Razorpay Webhook] Invoice generated: ${invoice.invoice_number}`);
+          } else {
+            console.log(`[Razorpay Webhook] Invoice creation skipped for USD payment - pending manual creation`);
+
+            // Send admin notification for USD payment
+            if (currency === 'USD') {
+              try {
+                const userResult = await pool.query('SELECT name, email FROM users WHERE id = $1', [userId]);
+                const user = userResult.rows[0];
+
+                await sendUSDPaymentNotification({
+                  adminEmail: env.admin.notificationEmail,
+                  customerName: user?.name || 'Unknown',
+                  customerEmail: user?.email || 'Unknown',
+                  paymentId: paymentId,
+                  amountUSD: amount / 100, // Convert cents to dollars
+                  ticketType: 'season_ticket',
+                  paymentDate: new Date(),
+                });
+
+                console.log(`[Razorpay Webhook] Admin notification sent for USD season ticket payment: ${paymentId}`);
+              } catch (emailErr) {
+                console.error('[Razorpay Webhook] Failed to send admin notification:', emailErr);
+              }
+            }
+          }
         } catch (invoiceErr) {
           console.error('[Razorpay Webhook] Failed to generate invoice:', invoiceErr);
         }
@@ -473,7 +621,36 @@ router.post('/webhook', async (req: Request, res: Response) => {
             amountPaise: amount,
             currency: currency
           });
-          console.log(`[Razorpay Webhook] Invoice generated: ${invoice.invoice_number}`);
+          if (invoice) {
+            console.log(`[Razorpay Webhook] Invoice generated: ${invoice.invoice_number}`);
+          } else {
+            console.log(`[Razorpay Webhook] Invoice creation skipped for USD payment - pending manual creation`);
+
+            // Send admin notification for USD payment
+            if (currency === 'USD') {
+              try {
+                const userResult = await pool.query('SELECT name, email FROM users WHERE id = $1', [userId]);
+                const eventResult = await pool.query('SELECT title FROM events WHERE id = $1', [eventId]);
+                const user = userResult.rows[0];
+                const event = eventResult.rows[0];
+
+                await sendUSDPaymentNotification({
+                  adminEmail: env.admin.notificationEmail,
+                  customerName: user?.name || 'Unknown',
+                  customerEmail: user?.email || 'Unknown',
+                  paymentId: paymentId,
+                  amountUSD: amount / 100, // Convert cents to dollars
+                  eventTitle: event?.title,
+                  ticketType: 'event_ticket',
+                  paymentDate: new Date(),
+                });
+
+                console.log(`[Razorpay Webhook] Admin notification sent for USD event ticket payment: ${paymentId}`);
+              } catch (emailErr) {
+                console.error('[Razorpay Webhook] Failed to send admin notification:', emailErr);
+              }
+            }
+          }
         } catch (invoiceErr) {
           console.error('[Razorpay Webhook] Failed to generate invoice:', invoiceErr);
         }
