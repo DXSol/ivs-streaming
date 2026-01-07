@@ -42,8 +42,9 @@ router.get('/playback-token', requireAuth, async (req, res) => {
     });
   }
 
-  // Admin has unrestricted access to all events
-  let hasValidTicket = user.role === 'admin';
+  // Admin roles have unrestricted access to all events
+  const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+  let hasValidTicket = adminRoles.includes(user.role);
 
   // Check for individual ticket OR season ticket (if not admin)
   if (!hasValidTicket) {

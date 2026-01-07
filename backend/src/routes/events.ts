@@ -314,8 +314,25 @@ router.get('/:id/access', requireAuth, async (req, res) => {
 // GET /events/user/ticket-status - Get all ticket statuses for the logged-in user
 router.get('/user/ticket-status', requireAuth, async (req, res) => {
   const userId = req.user!.id;
+  const userRole = req.user!.role;
 
   try {
+    // Admin roles have access to all events
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    if (adminRoles.includes(userRole)) {
+      // Get all events and mark them as paid for admin
+      const eventsResult = await pool.query('SELECT id FROM events');
+      const tickets: Record<string, string> = {};
+      for (const row of eventsResult.rows) {
+        tickets[row.id] = 'paid';
+      }
+      return res.json({
+        tickets,
+        hasSeasonTicket: true,
+        seasonTicketPurchasedAt: new Date().toISOString(),
+      });
+    }
+
     // Get all individual tickets for the user
     const ticketsResult = await pool.query(
       `SELECT event_id, status FROM tickets WHERE user_id = $1`,

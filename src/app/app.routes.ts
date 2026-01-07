@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './auth/auth.guard';
 import { adminGuard } from './auth/admin.guard';
+import { contentAdminGuard, financeAdminGuard, fullAdminGuard, superAdminGuard } from './auth/role.guard';
 
 export const routes: Routes = [
   {
@@ -29,22 +30,22 @@ export const routes: Routes = [
   },
   {
     path: 'admin/mark-paid',
-    canActivate: [adminGuard],
+    canActivate: [fullAdminGuard],
     loadComponent: () => import('./admin-mark-paid/admin-mark-paid.page').then((m) => m.AdminMarkPaidPage),
   },
   {
     path: 'admin/create-event',
-    canActivate: [adminGuard],
+    canActivate: [contentAdminGuard],
     loadComponent: () => import('./admin/create-event/create-event.page').then((m) => m.CreateEventPage),
   },
   {
     path: 'admin/dashboard',
-    canActivate: [adminGuard],
+    canActivate: [contentAdminGuard],
     loadComponent: () => import('./admin/dashboard/dashboard.page').then((m) => m.DashboardPage),
   },
   {
     path: 'admin/edit-event/:id',
-    canActivate: [adminGuard],
+    canActivate: [contentAdminGuard],
     loadComponent: () => import('./admin/edit-event/edit-event.page').then((m) => m.EditEventPage),
   },
   {
@@ -68,13 +69,18 @@ export const routes: Routes = [
   },
   {
     path: 'admin/invoice-statement',
-    canActivate: [adminGuard],
+    canActivate: [financeAdminGuard],
     loadComponent: () => import('./admin/invoice-statement/invoice-statement.page').then(m => m.InvoiceStatementPage)
   },
   {
     path: 'admin/pending-usd-invoices',
-    canActivate: [adminGuard],
+    canActivate: [financeAdminGuard],
     loadComponent: () => import('./admin/pending-usd-invoices/pending-usd-invoices.page').then(m => m.PendingUsdInvoicesPage)
+  },
+  {
+    path: 'admin/manage-users',
+    canActivate: [superAdminGuard],
+    loadComponent: () => import('./admin/manage-users/manage-users.page').then(m => m.ManageUsersPage)
   },
   {
     path: '',

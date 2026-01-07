@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { pool } from '../db/pool';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { requireAuth, requireRole, requireSuperAdmin } from '../middleware/auth';
 import { getStreamStatus } from '../services/ivs.service';
 
 const router = Router();
@@ -462,6 +463,237 @@ router.post('/invoices/create-for-usd-payment', requireAuth, requireRole(['admin
       return res.status(400).json({ error: 'Invalid input', details: err.errors });
     }
     return res.status(500).json({ error: 'Failed to create invoice for USD payment' });
+  }
+});
+
+// GET /admin/users - List all admin users (superadmin only)
+router.get('/users', requireAuth, requireSuperAdmin, async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, name, email, mobile, role, is_active, created_at
+       FROM users
+       WHERE role IN ('admin', 'superadmin', 'finance-admin', 'content-admin')
+       ORDER BY created_at DESC`
+    );
+
+    res.json({ users: rows });
+  } catch (err: any) {
+    console.error('Failed to list admin users:', err);
+    return res.status(500).json({ error: 'Failed to list admin users' });
+  }
+});
+
+// POST /admin/users - Create a new admin user (superadmin only)
+const createAdminUserSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email(),
+  mobile: z.string().min(1),
+  password: z.string().min(6),
+  role: z.enum(['admin', 'finance-admin', 'content-admin']),
+});
+
+router.post('/users', requireAuth, requireSuperAdmin, async (req, res) => {
+  const parsed = createAdminUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { name, email, mobile, password, role } = parsed.data;
+
+  try {
+    // Check if user already exists
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, password_hash, role, name, mobile, is_active, created_at)
+       VALUES ($1, $2, $3, $4, $5, true, NOW())
+       RETURNING id, name, email, mobile, role, is_active, created_at`,
+      [email, passwordHash, role, name, mobile]
+    );
+
+    res.status(201).json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to create admin user:', err);
+    return res.status(500).json({ error: 'Failed to create admin user' });
+  }
+});
+
+// PUT /admin/users/:userId/role - Update user role (superadmin only)
+const updateUserRoleSchema = z.object({
+  role: z.enum(['admin', 'finance-admin', 'content-admin']),
+});
+
+router.put('/users/:userId/role', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+  const parsed = updateUserRoleSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { role } = parsed.data;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot change role of superadmin' });
+    }
+
+    // Update role
+    const { rows } = await pool.query(
+      `UPDATE users SET role = $1 WHERE id = $2
+       RETURNING id, name, email, role, created_at`,
+      [role, userId]
+    );
+
+    res.json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to update user role:', err);
+    return res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// DELETE /admin/users/:userId - Delete an admin user (superadmin only)
+router.delete('/users/:userId', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot delete superadmin' });
+    }
+
+    // Delete user and all related data
+    await pool.query('DELETE FROM tickets WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM season_tickets WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM payments WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM event_comments WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM ivs_access_logs WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM invoices WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    res.json({ ok: true, message: 'User deleted successfully' });
+  } catch (err: any) {
+    console.error('Failed to delete admin user:', err);
+    return res.status(500).json({ error: 'Failed to delete admin user' });
+  }
+});
+
+// PUT /admin/users/:userId - Update admin user details (superadmin only)
+const updateAdminUserSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  email: z.string().email().optional(),
+  mobile: z.string().min(1).optional(),
+});
+
+router.put('/users/:userId', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+  const parsed = updateAdminUserSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { name, email, mobile } = parsed.data;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot update superadmin details' });
+    }
+
+    // Build update query dynamically
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
+    }
+    if (email !== undefined) {
+      updates.push(`email = $${paramCount++}`);
+      values.push(email);
+    }
+    if (mobile !== undefined) {
+      updates.push(`mobile = $${paramCount++}`);
+      values.push(mobile);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(userId);
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING id, name, email, mobile, role, is_active, created_at`;
+
+    const { rows } = await pool.query(query, values);
+    res.json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to update admin user:', err);
+    return res.status(500).json({ error: 'Failed to update admin user' });
+  }
+});
+
+// PUT /admin/users/:userId/status - Toggle admin user active status (superadmin only)
+const toggleUserStatusSchema = z.object({
+  is_active: z.boolean(),
+});
+
+router.put('/users/:userId/status', requireAuth, requireSuperAdmin, async (req, res) => {
+  const userId = req.params.userId;
+  const parsed = toggleUserStatusSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+  }
+
+  const { is_active } = parsed.data;
+
+  try {
+    // Check if user exists and is not a superadmin
+    const existing = await pool.query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (existing.rows[0].role === 'superadmin') {
+      return res.status(403).json({ error: 'Cannot disable superadmin' });
+    }
+
+    // Update status
+    const { rows } = await pool.query(
+      `UPDATE users SET is_active = $1 WHERE id = $2
+       RETURNING id, name, email, mobile, role, is_active, created_at`,
+      [is_active, userId]
+    );
+
+    res.json({ user: rows[0] });
+  } catch (err: any) {
+    console.error('Failed to toggle user status:', err);
+    return res.status(500).json({ error: 'Failed to toggle user status' });
   }
 });
 

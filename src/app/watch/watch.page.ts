@@ -237,7 +237,8 @@ export class WatchPage implements OnInit, OnDestroy, AfterViewInit {
     await this.auth.init();
     const user = this.auth.getUserSync();
     this.isLoggedIn = !!user;
-    this.isAdmin = user?.role === 'admin';
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    this.isAdmin = user?.role ? adminRoles.includes(user.role) : false;
 
     this.eventId = this.route.snapshot.paramMap.get('id');
     const mode = this.route.snapshot.queryParamMap.get('mode');

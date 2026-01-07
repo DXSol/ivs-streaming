@@ -101,7 +101,8 @@ export class EventDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.auth.init();
     const user = this.auth.getUserSync();
     this.isLoggedIn = !!user;
-    this.isAdmin = user?.role === 'admin';
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    this.isAdmin = user?.role ? adminRoles.includes(user.role) : false;
 
     this.eventId = this.route.snapshot.paramMap.get('id');
     if (!this.eventId) {

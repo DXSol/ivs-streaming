@@ -33,6 +33,16 @@ export interface PendingUSDInvoice {
   invoice_type: 'event_ticket' | 'season_ticket';
 }
 
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  mobile?: string;
+  role: 'admin' | 'superadmin' | 'finance-admin' | 'content-admin';
+  is_active?: boolean;
+  created_at: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -130,5 +140,56 @@ export class AdminApiService {
       invoiceId: resp.invoice.id,
       invoiceNumber: resp.invoice.invoice_number,
     };
+  }
+
+  async listAdminUsers(): Promise<AdminUser[]> {
+    const url = `${environment.apiBaseUrl}/admin/users`;
+    const resp = await firstValueFrom(
+      this.http.get<{ users: AdminUser[] }>(url)
+    );
+    return resp.users;
+  }
+
+  async createAdminUser(
+    name: string,
+    email: string,
+    mobile: string,
+    password: string,
+    role: 'admin' | 'finance-admin' | 'content-admin'
+  ): Promise<AdminUser> {
+    const url = `${environment.apiBaseUrl}/admin/users`;
+    const resp = await firstValueFrom(
+      this.http.post<{ user: AdminUser }>(url, { name, email, mobile, password, role })
+    );
+    return resp.user;
+  }
+
+  async updateUserRole(
+    userId: string,
+    role: 'admin' | 'finance-admin' | 'content-admin'
+  ): Promise<void> {
+    const url = `${environment.apiBaseUrl}/admin/users/${userId}/role`;
+    await firstValueFrom(
+      this.http.put(url, { role })
+    );
+  }
+
+  async deleteAdminUser(userId: string): Promise<void> {
+    const url = `${environment.apiBaseUrl}/admin/users/${userId}`;
+    await firstValueFrom(this.http.delete(url));
+  }
+
+  async updateAdminUser(userId: string, data: {
+    name?: string;
+    email?: string;
+    mobile?: string;
+  }): Promise<void> {
+    const url = `${environment.apiBaseUrl}/admin/users/${userId}`;
+    await firstValueFrom(this.http.put(url, data));
+  }
+
+  async toggleAdminUserStatus(userId: string, isActive: boolean): Promise<void> {
+    const url = `${environment.apiBaseUrl}/admin/users/${userId}/status`;
+    await firstValueFrom(this.http.put(url, { is_active: isActive }));
   }
 }

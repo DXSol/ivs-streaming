@@ -11,7 +11,7 @@ export async function ensureSchema() {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       email TEXT UNIQUE,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('viewer','admin')),
+      role TEXT NOT NULL CHECK (role IN ('viewer','admin','superadmin','finance-admin','content-admin')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
@@ -101,6 +101,13 @@ export async function ensureSchema() {
 
   // Add purchased_at column to season_tickets if it doesn't exist
   await pool.query("ALTER TABLE season_tickets ADD COLUMN IF NOT EXISTS purchased_at TIMESTAMPTZ;");
+
+  // Update existing paid season tickets to have purchased_at set to created_at if NULL
+  await pool.query(`
+    UPDATE season_tickets
+    SET purchased_at = created_at
+    WHERE status = 'paid' AND purchased_at IS NULL
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS event_viewer_stats (
@@ -222,4 +229,12 @@ export async function ensureSchema() {
   // Add columns for USD invoice handling
   await pool.query("ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_pending BOOLEAN DEFAULT FALSE;");
   await pool.query("ALTER TABLE payments ADD COLUMN IF NOT EXISTS exchange_rate DECIMAL(10,4);");
+
+  // Update users table role constraint to include all admin roles
+  await pool.query("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;");
+  await pool.query("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('viewer','admin','superadmin','finance-admin','content-admin'));");
+
+  // Add mobile and is_active columns to users table
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile TEXT;");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;");
 }

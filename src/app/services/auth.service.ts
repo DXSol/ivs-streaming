@@ -4,7 +4,7 @@ import { BehaviorSubject, firstValueFrom, Observable } from 'rxjs';
 import { Preferences } from '@capacitor/preferences';
 import { environment } from '../../environments/environment';
 
-export type UserRole = 'viewer' | 'admin';
+export type UserRole = 'viewer' | 'admin' | 'superadmin' | 'finance-admin' | 'content-admin';
 
 export interface AuthUser {
   id: string;

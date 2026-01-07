@@ -127,7 +127,8 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.auth.init();
     const user = this.auth.getUserSync();
     this.isLoggedIn = !!user;
-    this.isAdmin = user?.role === 'admin';
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    this.isAdmin = user?.role ? adminRoles.includes(user.role) : false;
     this.cdr.detectChanges();
     
     // Reload events list every time the page is entered
