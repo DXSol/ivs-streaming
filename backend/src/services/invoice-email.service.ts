@@ -56,7 +56,19 @@ export async function sendInvoiceEmail(invoiceId: string): Promise<boolean> {
       companyPhone: invoice.company_phone,
       companyGstin: invoice.company_gstin,
       sacCode: invoice.sac_code || '999629',
+      companyCin: invoice.company_cin || undefined,
+      companyPan: invoice.company_pan || undefined,
+      companyEmail: invoice.company_email || undefined,
+      companyRegistrationNumber: invoice.company_registration_number || undefined,
+      companyUdyamNumber: invoice.company_udyam_number || undefined,
+      companyStateCode: invoice.company_state_code || undefined,
+      companyStateName: invoice.company_state_name || undefined,
+      companyBankName: invoice.company_bank_name || undefined,
+      companyBankAccountNumber: invoice.company_bank_account_number || undefined,
+      companyBankIfscCode: invoice.company_bank_ifsc_code || undefined,
+      companyBankBranch: invoice.company_bank_branch || undefined,
       razorpayPaymentId: invoice.razorpay_payment_id || undefined,
+      paymentDate: invoice.payment_date ? new Date(invoice.payment_date) : undefined,
     };
 
     // Generate PDF

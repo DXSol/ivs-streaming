@@ -49,10 +49,10 @@ async function main() {
 
   let createdCount = 0;
 
-  // Step 2: Generate invoices for all successful payments
-  console.log('Step 2: Generating invoices for successful payments...');
+  // Step 2: Generate invoices for all successful payments (excluding USD)
+  console.log('Step 2: Generating invoices for successful payments (INR only)...');
   const paymentsResult = await pool.query(`
-    SELECT 
+    SELECT
       p.id as payment_id,
       p.user_id,
       p.event_id,
@@ -66,11 +66,11 @@ async function main() {
     FROM payments p
     JOIN users u ON p.user_id = u.id
     LEFT JOIN events e ON p.event_id = e.id
-    WHERE p.status = 'success' AND p.provider = 'razorpay'
+    WHERE p.status = 'success' AND p.provider = 'razorpay' AND p.currency = 'INR'
     ORDER BY p.created_at ASC
   `);
 
-  console.log(`Found ${paymentsResult.rows.length} successful payments`);
+  console.log(`Found ${paymentsResult.rows.length} successful INR payments`);
 
   for (const payment of paymentsResult.rows) {
     try {
@@ -148,10 +148,12 @@ async function main() {
     }
   }
 
-  // Note: Only generating invoices for payments with actual payment records.
+  // Note: Only generating invoices for INR payments with actual payment records.
+  // USD payments require manual invoice generation through admin panel.
   // Manually marked tickets/season tickets without payment records will NOT get invoices.
   console.log('');
-  console.log('Note: Only payments with actual payment records get invoices.');
+  console.log('Note: Only INR payments with actual payment records get invoices.');
+  console.log('USD payments require manual invoice generation through admin panel.');
   console.log('Manually marked tickets without payment records are skipped.');
   console.log('');
   console.log('=== Invoice Regeneration Complete ===');
