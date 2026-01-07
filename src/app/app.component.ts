@@ -40,6 +40,7 @@ export class AppComponent implements OnInit, OnDestroy {
     { title: 'Create Event', url: '/admin/create-event', icon: 'add-circle-outline' },
     { title: 'Subscribers', url: '/admin/mark-paid', icon: 'people-outline' },
     { title: 'Invoice Statement', url: '/admin/invoice-statement', icon: 'receipt-outline' },
+    { title: 'Pending USD Invoices', url: '/admin/pending-usd-invoices', icon: 'card-outline' },
   ];
 
   constructor(private auth: AuthService) {
