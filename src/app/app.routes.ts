@@ -72,7 +72,7 @@ export const routes: Routes = [
     loadComponent: () => import('./admin/invoice-statement/invoice-statement.page').then(m => m.InvoiceStatementPage)
   },
   {
-    path: 'admin/invoices/pending',
+    path: 'admin/pending-usd-invoices',
     canActivate: [adminGuard],
     loadComponent: () => import('./admin/pending-usd-invoices/pending-usd-invoices.page').then(m => m.PendingUsdInvoicesPage)
   },
