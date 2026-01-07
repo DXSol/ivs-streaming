@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { pool } from '../db/pool';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { env } from '../config/env';
@@ -237,6 +238,113 @@ router.get('/admin/statement', requireAuth, requireAdmin, async (req: Request, r
   } catch (err: any) {
     console.error('Failed to fetch invoice statement:', err);
     res.status(500).json({ error: 'Failed to fetch invoice statement' });
+  }
+});
+
+// GET /invoices/admin/pending-usd - Get all USD payments without invoices
+router.get('/admin/pending-usd', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+        p.id as payment_id, p.provider_payment_id, p.user_id, p.event_id, p.amount_cents, p.currency,
+        p.created_at,
+        u.name as user_name, u.email as user_email,
+        e.title as event_title,
+        CASE WHEN p.event_id IS NULL THEN 'season_ticket' ELSE 'event_ticket' END as invoice_type
+      FROM payments p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN events e ON p.event_id = e.id
+      WHERE p.currency = 'USD'
+        AND p.status = 'success'
+        AND NOT EXISTS (
+          SELECT 1 FROM invoices i WHERE i.payment_id = p.id
+        )
+      ORDER BY p.created_at DESC`
+    );
+
+    res.json({ payments: rows });
+  } catch (err: any) {
+    console.error('Failed to fetch pending USD payments:', err);
+    res.status(500).json({ error: 'Failed to fetch pending USD payments' });
+  }
+});
+
+// POST /invoices/admin/generate-usd-invoice - Generate invoice for USD payment
+const generateUsdInvoiceSchema = z.object({
+  paymentId: z.string().uuid(),
+  conversionRate: z.number().positive(),
+});
+
+router.post('/admin/generate-usd-invoice', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const parsed = generateUsdInvoiceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  }
+
+  const { paymentId, conversionRate } = parsed.data;
+
+  try {
+    // Get payment details
+    const paymentResult = await pool.query(
+      `SELECT p.*, u.name, u.email, u.address, e.title as event_title
+       FROM payments p
+       LEFT JOIN users u ON p.user_id = u.id
+       LEFT JOIN events e ON p.event_id = e.id
+       WHERE p.id = $1 AND p.currency = 'USD' AND p.status = 'success'`,
+      [paymentId]
+    );
+
+    if (paymentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Payment not found or not a USD payment' });
+    }
+
+    const payment = paymentResult.rows[0];
+
+    // Check if invoice already exists
+    const existingInvoice = await pool.query(
+      'SELECT id, invoice_number FROM invoices WHERE payment_id = $1',
+      [paymentId]
+    );
+
+    if (existingInvoice.rows.length > 0) {
+      return res.status(400).json({ error: 'Invoice already exists for this payment' });
+    }
+
+    // Convert USD cents to INR paise using provided conversion rate
+    // payment.amount_cents is in USD cents (e.g., 1000 = $10.00)
+    const usdDollars = payment.amount_cents / 100;
+    const inrRupees = usdDollars * conversionRate;
+    const totalPaise = Math.round(inrRupees * 100);
+
+    // Create invoice using the existing createInvoice function
+    // The function will handle GST calculation (assuming amount is inclusive)
+    const invoice = await createInvoice({
+      userId: payment.user_id,
+      paymentId: payment.id,
+      invoiceType: payment.event_id ? 'event_ticket' : 'season_ticket',
+      eventId: payment.event_id,
+      amountPaise: totalPaise,
+      currency: 'INR', // Store as INR after conversion
+    });
+
+    // Store the conversion rate in the invoice (we need to add this to the DB schema later if needed)
+    // For now, just return it in the response
+    console.log(`[generate-usd-invoice] Invoice generated for USD payment ${paymentId}: ${invoice.invoice_number}, conversion rate: ${conversionRate}`);
+
+    return res.json({
+      success: true,
+      invoice: {
+        id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        usd_amount: usdDollars,
+        conversion_rate: conversionRate,
+        inr_amount: inrRupees,
+        total_paise: totalPaise,
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to generate USD invoice:', err);
+    return res.status(500).json({ error: 'Failed to generate invoice' });
   }
 });
 

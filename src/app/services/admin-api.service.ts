@@ -19,6 +19,20 @@ export interface AdminSubscriptionRow {
   season_ticket_purchased_at: string | null;
 }
 
+export interface PendingUSDInvoice {
+  payment_id: string;
+  provider_payment_id: string;
+  user_id: string;
+  event_id: string | null;
+  amount_cents: number;
+  currency: string;
+  created_at: string;
+  user_name: string;
+  user_email: string;
+  event_title: string | null;
+  invoice_type: 'event_ticket' | 'season_ticket';
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -84,5 +98,37 @@ export class AdminApiService {
   async setSeasonTicketStatus(userId: string, paid: boolean): Promise<void> {
     const url = `${environment.apiBaseUrl}/admin/season-ticket-status`;
     await firstValueFrom(this.http.post(url, { userId, paid }));
+  }
+
+  async listPendingUSDInvoices(): Promise<PendingUSDInvoice[]> {
+    const url = `${environment.apiBaseUrl}/invoices/admin/pending-usd`;
+    const resp = await firstValueFrom(
+      this.http.get<{ payments: PendingUSDInvoice[] }>(url)
+    );
+    return resp.payments;
+  }
+
+  async createUSDInvoice(params: {
+    paymentId: string;
+    exchangeRate: number;
+  }): Promise<{ invoiceId: string; invoiceNumber: string }> {
+    const url = `${environment.apiBaseUrl}/invoices/admin/generate-usd-invoice`;
+    const resp = await firstValueFrom(
+      this.http.post<{
+        success: boolean;
+        invoice: {
+          id: string;
+          invoice_number: string;
+          usd_amount: number;
+          conversion_rate: number;
+          inr_amount: number;
+          total_paise: number;
+        };
+      }>(url, { paymentId: params.paymentId, conversionRate: params.exchangeRate })
+    );
+    return {
+      invoiceId: resp.invoice.id,
+      invoiceNumber: resp.invoice.invoice_number,
+    };
   }
 }
