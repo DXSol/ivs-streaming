@@ -34,9 +34,9 @@ export async function createInvoice(params: {
   eventId?: string;
   amountPaise: number;
   currency: string;
-}): Promise<{ id: string; invoice_number: string }> {
+}): Promise<{ id: string; invoice_number: string } | null> {
   const { userId, paymentId, invoiceType, eventId, amountPaise, currency } = params;
-  
+
   // Check if invoice already exists for this payment
   const existingInvoice = await pool.query(
     'SELECT id, invoice_number FROM invoices WHERE payment_id = $1',
@@ -45,6 +45,17 @@ export async function createInvoice(params: {
   if (existingInvoice.rows.length > 0) {
     console.log(`[createInvoice] Invoice already exists for payment ${paymentId}: ${existingInvoice.rows[0].invoice_number}`);
     return existingInvoice.rows[0];
+  }
+
+  // Skip automatic invoice generation for USD payments
+  // Admin will create them manually with converted INR amount
+  if (currency === 'USD') {
+    console.log(`[createInvoice] Skipping automatic invoice for USD payment ${paymentId} - marking as pending`);
+    await pool.query(
+      'UPDATE payments SET invoice_pending = true WHERE id = $1',
+      [paymentId]
+    );
+    return null;
   }
   
   // Get user details

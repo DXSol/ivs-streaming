@@ -1,4 +1,5 @@
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://events-backend.edifyplus.com/api'
+  apiBaseUrl: 'https://events-backend.edifyplus.com/api',
+  showSeasonTicketBanner: true
 };

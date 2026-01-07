@@ -40,6 +40,7 @@ import { AdminApiService } from '../services/admin-api.service';
 import { PendingPurchaseService } from '../services/pending-purchase.service';
 import { EventTimePipe } from '../pipes/event-time.pipe';
 import { ContactInfoComponent } from '../shared/contact-info/contact-info.component';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-events',
@@ -93,6 +94,9 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
   // Live stream status for each event
   eventLiveStatus: Map<string, boolean> = new Map();
 
+  // Recording expiry info from backend (per-user)
+  recordingExpiryInfo: Map<string, { expiresAt: Date; isExpired: boolean }> = new Map();
+
   // Timer for auto-polling live stream status
   private liveStatusTimer?: any;
 
@@ -132,6 +136,7 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.loadSeasonTicketPrice();
     if (this.isLoggedIn) {
       await this.loadUserTicketStatus();
+      await this.loadRecordingExpiryInfo();
       // Check for any pending payments that may have completed via webhook
       await this.verifyPendingPayments();
     }
@@ -184,15 +189,36 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
       const status = await this.eventsApi.getUserTicketStatus();
       this.hasSeasonTicket = status.hasSeasonTicket;
       this.seasonTicketPurchasedAt = status.seasonTicketPurchasedAt;
-      
+
       // Set individual ticket statuses
       for (const [eventId, ticketStatus] of Object.entries(status.tickets)) {
-        this.eventTicketStatus.set(eventId, { 
-          hasPaid: ticketStatus === 'paid', 
-          isProcessing: false 
+        this.eventTicketStatus.set(eventId, {
+          hasPaid: ticketStatus === 'paid',
+          isProcessing: false
         });
       }
-      
+
+      this.cdr.detectChanges();
+    } catch {
+      // Silently fail - user might not be logged in
+    }
+  }
+
+  async loadRecordingExpiryInfo() {
+    try {
+      const response = await this.eventsApi.getRecordingExpiryInfo();
+
+      // Clear previous data
+      this.recordingExpiryInfo.clear();
+
+      // Store the expiry info
+      for (const [eventId, info] of Object.entries(response.expiryInfo)) {
+        this.recordingExpiryInfo.set(eventId, {
+          expiresAt: new Date(info.expiresAt),
+          isExpired: info.isExpired
+        });
+      }
+
       this.cdr.detectChanges();
     } catch {
       // Silently fail - user might not be logged in
@@ -247,8 +273,11 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
         prefillEmail: user?.email,
       });
 
-      const verifyResult = await this.razorpay.verifySeasonPayment(paymentResult, order.discountedPaise);
-      
+      const verifyResult = await this.razorpay.verifySeasonPayment(paymentResult, order.discountedAmount, order.currency);
+
+      // Reload recording expiry info after successful payment
+      await this.loadRecordingExpiryInfo();
+
       // Navigate to invoice if available
       if (verifyResult.invoiceId) {
         this.router.navigate(['/invoice', verifyResult.invoiceId], {
@@ -257,7 +286,7 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
         });
         return;
       }
-      
+
       // Fallback if no invoice
       this.hasSeasonTicket = true;
       this.seasonTicketPurchasedAt = new Date().toISOString();
@@ -289,6 +318,40 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   getTicketStatus(eventId: string): { hasPaid: boolean; isProcessing: boolean } {
     return this.eventTicketStatus.get(eventId) || { hasPaid: false, isProcessing: false };
+  }
+
+  shouldShowSeasonTicketBanner(): boolean {
+    return environment.showSeasonTicketBanner && this.hasValidSeasonTicketAmount();
+  }
+
+  hasValidSeasonTicketAmount(): boolean {
+    if (!this.seasonTicketPrice) return false;
+
+    // Check if there's a valid amount based on currency
+    if (this.seasonTicketPrice.currency === 'INR') {
+      return (this.seasonTicketPrice.discountedPaise || 0) > 0;
+    } else {
+      return (this.seasonTicketPrice.discountedCents || 0) > 0;
+    }
+  }
+
+  getOriginalPrice(): string {
+    if (!this.seasonTicketPrice) return '';
+
+    if (this.seasonTicketPrice.currency === 'INR') {
+      return `₹${((this.seasonTicketPrice.originalPaise || 0) / 100).toFixed(0)}`;
+    } else {
+      return `$${((this.seasonTicketPrice.originalCents || 0) / 100).toFixed(2)}`;
+    }
+  }
+
+  getEventPrice(event: EventDto): string {
+    // Check if user is international based on season ticket price response
+    if (this.seasonTicketPrice && this.seasonTicketPrice.isInternational) {
+      return '$10';
+    }
+    // Default to INR for Indian users
+    return `₹${((event.price_paise || 50000) / 100)}`;
   }
 
   get paidEvents(): EventDto[] {
@@ -344,6 +407,36 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
     return new Date(event.ends_at).getTime() < Date.now();
   }
 
+  canPurchasePastEvent(event: EventDto): boolean {
+    // Must be a paid event
+    if (event.event_type !== 'paid') {
+      return false;
+    }
+
+    // Must have allow_past_purchase enabled
+    if (!event.allow_past_purchase) {
+      return false;
+    }
+
+    // Event must have ended
+    if (!this.isPastEvent(event)) {
+      return false;
+    }
+
+    // User must not already have access
+    if (this.hasAccessToEvent(event)) {
+      return false;
+    }
+
+    // Don't check isRecordingExpired here because:
+    // 1. User hasn't purchased, so there's no per-user expiry to check
+    // 2. When they purchase, they get 3 days from purchase date
+    // 3. Recording will be available as long as it exists in S3
+    // The backend will handle any actual availability issues when they try to watch
+
+    return true;
+  }
+
   isEventLive(event: EventDto): boolean {
     // Check if the IVS stream is actually broadcasting
     return this.eventLiveStatus.get(event.id) === true;
@@ -385,29 +478,34 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
   isRecordingAvailable(event: EventDto): boolean {
     const endsAtMs = new Date(event.ends_at).getTime();
     const nowMs = Date.now();
-    
+
     // Event must have ended
     if (nowMs < endsAtMs) return false;
-    
+
     // For recording-only events, add the recording_available_hours delay
     const availableHours = event.recording_available_hours || 0;
     const availableAtMs = endsAtMs + (availableHours * 60 * 60 * 1000);
     if (nowMs < availableAtMs) return false;
-    
-    // Recording expires 3 days after it becomes available
-    const expiryMs = availableAtMs + (3 * 24 * 60 * 60 * 1000);
-    
-    return nowMs < expiryMs;
+
+    // Recording is available (expiry is checked separately with isRecordingExpired)
+    return true;
   }
 
   getRecordingExpiryDate(event: EventDto): Date {
+    // Use backend expiry data if available (per-user based on payment date)
+    const expiryInfo = this.recordingExpiryInfo.get(event.id);
+    if (expiryInfo) {
+      return expiryInfo.expiresAt;
+    }
+
+    // Fallback to frontend calculation if backend data not available
     const endsAt = new Date(event.ends_at);
     // Add recording_available_hours delay before calculating expiry
     const availableHours = event.recording_available_hours || 0;
-    const availableAt = new Date(endsAt.getTime() + (availableHours * 60 * 60 * 1000));
-    const expiryDate = new Date(availableAt);
-    expiryDate.setDate(expiryDate.getDate() + 3);
-    return expiryDate;
+    const availableAtMs = endsAt.getTime() + (availableHours * 60 * 60 * 1000);
+    // Add 3 days (72 hours) in milliseconds
+    const expiryMs = availableAtMs + (3 * 24 * 60 * 60 * 1000);
+    return new Date(expiryMs);
   }
 
   getRecordingTimeRemaining(event: EventDto): string {
@@ -428,20 +526,28 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   isRecordingExpired(event: EventDto): boolean {
+    // Use backend expiry data if available (per-user based on payment date)
+    const expiryInfo = this.recordingExpiryInfo.get(event.id);
+    if (expiryInfo) {
+      return expiryInfo.isExpired;
+    }
+
+    // Fallback to frontend calculation if backend data not available
+    // (e.g., user not logged in or doesn't have access)
     const endsAtMs = new Date(event.ends_at).getTime();
     const nowMs = Date.now();
-    
+
     // Event must have ended
     if (nowMs < endsAtMs) return false;
-    
+
     // Add recording_available_hours delay before calculating expiry
     const availableHours = event.recording_available_hours || 0;
     const availableAtMs = endsAtMs + (availableHours * 60 * 60 * 1000);
-    
-    // Check if recording has expired (3 days after it becomes available)
+
+    // Check if recording has expired (72 hours = 3 days * 24 hours * 60 min * 60 sec * 1000 ms after it becomes available)
     const expiryMs = availableAtMs + (3 * 24 * 60 * 60 * 1000);
-    
-    return nowMs >= expiryMs;
+
+    return nowMs > expiryMs;
   }
 
   async buyEventTicket(event: EventDto, $event: Event) {
@@ -481,7 +587,10 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
 
       const verifyResult = await this.razorpay.verifyPayment(paymentResult, event.id, order.amount, order.currency);
       this.eventTicketStatus.set(event.id, { hasPaid: true, isProcessing: false });
-      
+
+      // Reload recording expiry info after successful payment
+      await this.loadRecordingExpiryInfo();
+
       // Navigate to invoice if available
       if (verifyResult.invoiceId) {
         this.router.navigate(['/invoice', verifyResult.invoiceId], {

@@ -159,6 +159,18 @@
             <p class="field-hint">Hours after event ends when recording becomes available. Enter 0 for immediate availability.</p>
           </div>
 
+          <!-- Allow Past Purchase Toggle (only for paid events) -->
+          <div class="form-row" *ngIf="eventType === 'paid'">
+            <ion-item>
+              <ion-label>Allow Past Purchase</ion-label>
+              <ion-toggle
+                [(ngModel)]="allowPastPurchase"
+                name="allowPastPurchase"
+              ></ion-toggle>
+            </ion-item>
+            <p class="field-hint">When enabled, users can purchase tickets even after the event has ended (expiry = purchase date + 3 days).</p>
+          </div>
+
           <div class="form-row">
             <div class="upload-section">
               <label class="upload-label">Poster Image</label>

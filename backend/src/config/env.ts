@@ -144,4 +144,12 @@ export const env = {
       ? process.env.INVOICE_RECIPIENT_EMAILS.split(',').map(email => email.trim()).filter(email => email.length > 0)
       : [],
   },
+
+  admin: {
+    notificationEmail: process.env.ADMIN_NOTIFICATION_EMAIL || 'admin@sankeertanotsav.com',
+  },
+
+  frontend: {
+    url: process.env.FRONTEND_URL || 'https://events.sampradya.live',
+  },
 };

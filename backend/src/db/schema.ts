@@ -86,6 +86,7 @@ export async function ensureSchema() {
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS recording_s3_path TEXT;");
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS recording_only BOOLEAN NOT NULL DEFAULT false;");
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS recording_available_hours INTEGER NOT NULL DEFAULT 0;");
+  await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS allow_past_purchase BOOLEAN NOT NULL DEFAULT true;");
 
   // Season ticket table - grants access to all events
   await pool.query(`
@@ -217,4 +218,8 @@ export async function ensureSchema() {
   await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_bank_account_number TEXT;");
   await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_bank_ifsc_code TEXT;");
   await pool.query("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_bank_branch TEXT;");
+
+  // Add columns for USD invoice handling
+  await pool.query("ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_pending BOOLEAN DEFAULT FALSE;");
+  await pool.query("ALTER TABLE payments ADD COLUMN IF NOT EXISTS exchange_rate DECIMAL(10,4);");
 }

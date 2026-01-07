@@ -38,30 +38,50 @@
           <!-- Past Event -->
           <div *ngIf="isPastEvent" class="past-event-notice">
             <span class="past-badge">Event Ended</span>
-            
-            <!-- Paid: Recording available with expiry info -->
-            <ng-container *ngIf="event.event_type === 'paid' && isRecordingAvailable()">
-              <p class="recording-expiry-notice">
-                <ion-icon name="time-outline"></ion-icon>
-                Recording available for {{ getRecordingTimeRemaining() }}
-              </p>
-              <ion-button 
-                *ngIf="isLoggedIn && hasAccessToEvent()"
-                color="tertiary"
-                [routerLink]="['/watch', event.id]"
-                [queryParams]="{ mode: 'recording' }"
-              >
-                <ion-icon name="videocam-outline" slot="start"></ion-icon>
-                Watch Recording
-              </ion-button>
-              <p class="past-hint" *ngIf="!isLoggedIn || !hasAccessToEvent()">Purchase a ticket to watch the recording</p>
-            </ng-container>
 
-            <!-- Paid: Recording expired -->
-            <p class="recording-expired-notice" *ngIf="event.event_type === 'paid' && isRecordingExpired()">
-              <ion-icon name="alert-circle-outline"></ion-icon>
-              Recording has expired. Recordings are available for 3 days after the event.
-            </p>
+            <!-- Paid Events -->
+            <ng-container *ngIf="event.event_type === 'paid'">
+              <!-- User has access and recording is available -->
+              <ng-container *ngIf="isLoggedIn && hasAccessToEvent() && isRecordingAvailable()">
+                <!-- Show expiry info only for non-admin users with non-expired access -->
+                <ng-container *ngIf="!isAdmin && !isRecordingExpired()">
+                  <p class="recording-expiry-notice">
+                    <ion-icon name="time-outline"></ion-icon>
+                    Recording available for {{ getRecordingTimeRemaining() }}
+                  </p>
+                </ng-container>
+
+                <!-- Watch Recording button for all users with access -->
+                <ion-button
+                  color="tertiary"
+                  [routerLink]="['/watch', event.id]"
+                  [queryParams]="{ mode: 'recording' }"
+                >
+                  <ion-icon name="videocam-outline" slot="start"></ion-icon>
+                  Watch Recording
+                </ion-button>
+              </ng-container>
+
+              <!-- User has access but recording expired (only for non-admin users) -->
+              <p class="recording-expired-notice" *ngIf="isLoggedIn && !isAdmin && hasAccessToEvent() && isRecordingExpired()">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                Recording has expired. Recordings are available for 3 days after purchase.
+              </p>
+
+              <!-- User can purchase ticket for past event -->
+              <ng-container *ngIf="canPurchasePastEvent()">
+                <ion-button
+                  color="success"
+                  (click)="buyTicket()"
+                  [disabled]="isProcessingPayment"
+                >
+                  <ion-spinner *ngIf="isProcessingPayment" name="crescent"></ion-spinner>
+                  <ion-icon *ngIf="!isProcessingPayment" name="ticket-outline" slot="start"></ion-icon>
+                  <span *ngIf="!isProcessingPayment">Buy Ticket - ₹{{ (event?.price_paise || 50000) / 100 }}</span>
+                </ion-button>
+                <p class="past-hint">Purchase a ticket to watch the recording</p>
+              </ng-container>
+            </ng-container>
 
             <!-- Free/Free-Short: YouTube video always available -->
             <ng-container *ngIf="event.event_type === 'free' || event.event_type === 'free-short'">

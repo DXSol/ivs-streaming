@@ -42,6 +42,7 @@ export class EditEventPage implements OnInit {
   priceRupees = 500;
   recordingOnly = false;
   recordingAvailableHours = 0;
+  allowPastPurchase = true;
 
   isLoading = true;
   isSubmitting = false;
@@ -82,6 +83,7 @@ export class EditEventPage implements OnInit {
       this.priceRupees = (event.price_paise || 50000) / 100;
       this.recordingOnly = event.recording_only || false;
       this.recordingAvailableHours = event.recording_available_hours || 0;
+      this.allowPastPurchase = event.allow_past_purchase !== undefined ? event.allow_past_purchase : true;
     } catch (err: any) {
       this.errorMessage = err?.error?.error || err?.message || 'Failed to load event';
     } finally {
@@ -193,6 +195,7 @@ export class EditEventPage implements OnInit {
         price_paise: this.eventType === 'paid' ? Math.round(this.priceRupees * 100) : 0,
         recording_only: this.eventType === 'paid' ? this.recordingOnly : false,
         recording_available_hours: (this.eventType === 'paid' && this.recordingOnly) ? this.recordingAvailableHours : 0,
+        allow_past_purchase: this.eventType === 'paid' ? this.allowPastPurchase : false,
       };
 
       const updated = await this.eventsApi.updateEvent(this.eventId, eventData);

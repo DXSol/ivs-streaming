@@ -351,4 +351,118 @@ router.put('/user/:userId', requireAuth, requireRole(['admin']), async (req, res
   }
 });
 
+// GET /admin/pending-usd-invoices - Get all USD payments pending invoice generation
+router.get('/pending-usd-invoices', requireAuth, requireRole(['admin']), async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        p.id as payment_id,
+        p.amount_cents,
+        p.currency,
+        p.created_at as payment_date,
+        p.provider_payment_id,
+        u.id as user_id,
+        u.name as user_name,
+        u.email as user_email,
+        u.country,
+        e.id as event_id,
+        e.title as event_title
+      FROM payments p
+      JOIN users u ON p.user_id = u.id
+      LEFT JOIN events e ON p.event_id = e.id
+      WHERE p.currency = 'USD'
+        AND p.status = 'success'
+        AND p.invoice_pending = true
+      ORDER BY p.created_at DESC
+    `);
+
+    res.json({ pendingInvoices: rows });
+  } catch (err: any) {
+    console.error('Failed to get pending USD invoices:', err);
+    return res.status(500).json({ error: 'Failed to get pending USD invoices' });
+  }
+});
+
+// POST /admin/invoices/create-for-usd-payment - Create invoice for USD payment with INR amount
+router.post('/invoices/create-for-usd-payment', requireAuth, requireRole(['admin']), async (req, res) => {
+  try {
+    const schema = z.object({
+      paymentId: z.string().uuid(),
+      amountInrPaise: z.number().int().positive(),
+      exchangeRate: z.number().positive().optional(),
+    });
+
+    const { paymentId, amountInrPaise, exchangeRate } = schema.parse(req.body);
+
+    // Get payment details
+    const paymentResult = await pool.query(
+      `SELECT p.*, u.name, u.email, u.address, e.title as event_title
+       FROM payments p
+       JOIN users u ON p.user_id = u.id
+       LEFT JOIN events e ON p.event_id = e.id
+       WHERE p.id = $1 AND p.currency = 'USD' AND p.status = 'success'`,
+      [paymentId]
+    );
+
+    if (paymentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'USD payment not found' });
+    }
+
+    const payment = paymentResult.rows[0];
+
+    // Check if invoice already exists
+    const existingInvoice = await pool.query(
+      'SELECT id, invoice_number FROM invoices WHERE payment_id = $1',
+      [paymentId]
+    );
+
+    if (existingInvoice.rows.length > 0) {
+      return res.status(400).json({
+        error: 'Invoice already exists for this payment',
+        invoice: existingInvoice.rows[0]
+      });
+    }
+
+    // Import createInvoice function
+    const { createInvoice } = await import('./invoices');
+
+    // Temporarily change currency to INR and amount to converted amount
+    // Then call createInvoice with INR currency
+    const invoiceType = payment.event_id ? 'event_ticket' : 'season_ticket';
+
+    const invoice = await createInvoice({
+      userId: payment.user_id,
+      paymentId: paymentId,
+      invoiceType: invoiceType as 'event_ticket' | 'season_ticket',
+      eventId: payment.event_id || undefined,
+      amountPaise: amountInrPaise,
+      currency: 'INR', // Force INR for USD payments converted by admin
+    });
+
+    if (!invoice) {
+      return res.status(500).json({ error: 'Failed to create invoice' });
+    }
+
+    // Update payment with exchange rate and mark invoice_pending as false
+    await pool.query(
+      'UPDATE payments SET exchange_rate = $1, invoice_pending = false WHERE id = $2',
+      [exchangeRate || null, paymentId]
+    );
+
+    console.log(`[Admin] Created invoice ${invoice.invoice_number} for USD payment ${paymentId} with INR amount ${amountInrPaise/100}`);
+
+    res.json({
+      success: true,
+      invoice: invoice,
+      message: `Invoice ${invoice.invoice_number} created successfully`
+    });
+  } catch (err: any) {
+    console.error('Failed to create invoice for USD payment:', err);
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid input', details: err.errors });
+    }
+    return res.status(500).json({ error: 'Failed to create invoice for USD payment' });
+  }
+});
+
 export default router;

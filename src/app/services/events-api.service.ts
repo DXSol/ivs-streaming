@@ -16,6 +16,7 @@ export interface EventDto {
   price_paise?: number;
   recording_only?: boolean;
   recording_available_hours?: number;
+  allow_past_purchase?: boolean;
 }
 
 export interface CreateEventDto {
@@ -30,6 +31,7 @@ export interface CreateEventDto {
   price_paise?: number;
   recording_only?: boolean;
   recording_available_hours?: number;
+  allow_past_purchase?: boolean;
 }
 
 export interface EventAccessDto {
@@ -54,6 +56,15 @@ export interface EventCommentDto {
   user_id: string;
   user_email: string;
   user_name?: string | null;
+}
+
+export interface RecordingExpiryInfo {
+  expiresAt: string;
+  isExpired: boolean;
+}
+
+export interface RecordingExpiryResponse {
+  expiryInfo: Record<string, RecordingExpiryInfo>;
 }
 
 @Injectable({
@@ -157,5 +168,14 @@ export class EventsApiService {
   async getChromecastSettings(): Promise<{ enableLiveCasting: boolean; enableRecordingCasting: boolean }> {
     const url = `${environment.apiBaseUrl}/settings/chromecast`;
     return await firstValueFrom(this.http.get<{ enableLiveCasting: boolean; enableRecordingCasting: boolean }>(url));
+  }
+
+  /**
+   * Get per-user recording expiry information
+   * Returns expiry dates based on payment dates for events the user has access to
+   */
+  async getRecordingExpiryInfo(): Promise<RecordingExpiryResponse> {
+    const url = `${environment.apiBaseUrl}/recordings/expiry-info`;
+    return await firstValueFrom(this.http.get<RecordingExpiryResponse>(url));
   }
 }

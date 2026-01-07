@@ -19,6 +19,7 @@ const createEventSchema = z.object({
   price_paise: z.number().int().min(0).optional(),
   recording_only: z.boolean().optional().default(false),
   recording_available_hours: z.number().int().min(0).max(168).optional().default(0),
+  allow_past_purchase: z.boolean().optional().default(true),
 });
 
 // Validation schema for updating events
@@ -34,6 +35,7 @@ const updateEventSchema = z.object({
   price_paise: z.number().int().min(0).optional(),
   recording_only: z.boolean().optional(),
   recording_available_hours: z.number().int().min(0).max(168).optional(),
+  allow_past_purchase: z.boolean().optional(),
 });
 
 // POST /events - Create new event (admin only)
@@ -43,7 +45,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
   }
 
-  const { title, description, event_type, ivs_channel_arn, youtube_url, starts_at, ends_at, poster_url, price_paise, recording_only, recording_available_hours } = parsed.data;
+  const { title, description, event_type, ivs_channel_arn, youtube_url, starts_at, ends_at, poster_url, price_paise, recording_only, recording_available_hours, allow_past_purchase } = parsed.data;
 
   // Validate: paid events need IVS channel, free/free-short events need YouTube URL
   if (event_type === 'paid' && !ivs_channel_arn) {
@@ -65,10 +67,10 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO events (title, description, event_type, ivs_channel_arn, youtube_url, starts_at, ends_at, poster_url, playback_url, price_paise, recording_only, recording_available_hours)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING id, title, description, event_type, starts_at, ends_at, poster_url, playback_url, youtube_url, price_paise, recording_only, recording_available_hours`,
-      [title, description || null, event_type || 'paid', ivs_channel_arn || null, youtube_url || null, starts_at, ends_at, poster_url || null, playback_url, (event_type === 'free' || event_type === 'free-short') ? 0 : (price_paise || 50000), recording_only || false, recording_available_hours || 0]
+      `INSERT INTO events (title, description, event_type, ivs_channel_arn, youtube_url, starts_at, ends_at, poster_url, playback_url, price_paise, recording_only, recording_available_hours, allow_past_purchase)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id, title, description, event_type, starts_at, ends_at, poster_url, playback_url, youtube_url, price_paise, recording_only, recording_available_hours, allow_past_purchase`,
+      [title, description || null, event_type || 'paid', ivs_channel_arn || null, youtube_url || null, starts_at, ends_at, poster_url || null, playback_url, (event_type === 'free' || event_type === 'free-short') ? 0 : (price_paise || 50000), recording_only || false, recording_available_hours || 0, allow_past_purchase !== undefined ? allow_past_purchase : true]
     );
 
     return res.status(201).json({ event: rows[0] });
@@ -81,12 +83,12 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
 // GET /events
 router.get('/', async (_req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, title, description, event_type, starts_at, ends_at, ivs_channel_arn, playback_url, youtube_url, poster_url, price_paise, recording_only, recording_available_hours FROM events ORDER BY starts_at DESC'
+    'SELECT id, title, description, event_type, starts_at, ends_at, ivs_channel_arn, playback_url, youtube_url, poster_url, price_paise, recording_only, recording_available_hours, allow_past_purchase FROM events ORDER BY starts_at DESC'
   );
 
   // Use stored playback_url if available, otherwise derive from channel ARN
   const events = await Promise.all(
-    rows.map(async (event: { id: string; title: string; description: string | null; event_type: string; starts_at: string; ends_at: string; ivs_channel_arn: string | null; playback_url: string | null; youtube_url: string | null; poster_url: string | null; price_paise: number; recording_only: boolean; recording_available_hours: number }) => {
+    rows.map(async (event: { id: string; title: string; description: string | null; event_type: string; starts_at: string; ends_at: string; ivs_channel_arn: string | null; playback_url: string | null; youtube_url: string | null; poster_url: string | null; price_paise: number; recording_only: boolean; recording_available_hours: number; allow_past_purchase: boolean }) => {
       let playback_url = event.playback_url;
       
       // If no stored URL, try to fetch from AWS (only for paid events)
@@ -111,6 +113,7 @@ router.get('/', async (_req, res) => {
         price_paise: event.price_paise,
         recording_only: event.recording_only || false,
         recording_available_hours: event.recording_available_hours || 0,
+        allow_past_purchase: event.allow_past_purchase !== undefined ? event.allow_past_purchase : true,
       };
     })
   );
@@ -122,7 +125,7 @@ router.get('/', async (_req, res) => {
 router.get('/:id', async (req, res) => {
   const eventId = req.params.id;
   const { rows } = await pool.query(
-    'SELECT id, title, description, event_type, starts_at, ends_at, ivs_channel_arn, playback_url, youtube_url, poster_url, price_paise, recording_only, recording_available_hours FROM events WHERE id = $1',
+    'SELECT id, title, description, event_type, starts_at, ends_at, ivs_channel_arn, playback_url, youtube_url, poster_url, price_paise, recording_only, recording_available_hours, allow_past_purchase FROM events WHERE id = $1',
     [eventId]
   );
 
@@ -131,7 +134,7 @@ router.get('/:id', async (req, res) => {
 
   // Use stored playback_url if available, otherwise derive from channel ARN (only for paid events)
   let playback_url = row.playback_url;
-  
+
   if (!playback_url && row.ivs_channel_arn && row.event_type === 'paid') {
     try {
       playback_url = await getPlaybackUrlFromArn(row.ivs_channel_arn);
@@ -154,6 +157,7 @@ router.get('/:id', async (req, res) => {
     ivs_channel_arn: row.ivs_channel_arn,
     recording_only: row.recording_only || false,
     recording_available_hours: row.recording_available_hours || 0,
+    allow_past_purchase: row.allow_past_purchase !== undefined ? row.allow_past_purchase : true,
   };
 
   return res.json({ event });
@@ -235,6 +239,10 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (updates.recording_available_hours !== undefined) {
       setClauses.push(`recording_available_hours = $${paramIndex++}`);
       values.push(updates.recording_available_hours);
+    }
+    if (updates.allow_past_purchase !== undefined) {
+      setClauses.push(`allow_past_purchase = $${paramIndex++}`);
+      values.push(updates.allow_past_purchase);
     }
 
     if (setClauses.length === 0) {
