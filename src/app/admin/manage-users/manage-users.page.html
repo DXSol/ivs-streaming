@@ -1,0 +1,183 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Manage Admin Users</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <ion-card-title>Admin Users</ion-card-title>
+        <ion-button (click)="showAddForm = !showAddForm" size="small">
+          <ion-icon slot="start" name="add-outline"></ion-icon>
+          Add User
+        </ion-button>
+      </div>
+    </ion-card-header>
+    <ion-card-content>
+      <!-- Add User Form -->
+      <div *ngIf="showAddForm" class="add-user-form">
+        <ion-grid>
+          <ion-row>
+            <ion-col size="12" size-md="6">
+              <ion-item>
+                <ion-label position="stacked">Name *</ion-label>
+                <ion-input [(ngModel)]="newUser.name" placeholder="Enter name" required></ion-input>
+              </ion-item>
+            </ion-col>
+            <ion-col size="12" size-md="6">
+              <ion-item>
+                <ion-label position="stacked">Email *</ion-label>
+                <ion-input [(ngModel)]="newUser.email" type="email" placeholder="Enter email" required></ion-input>
+              </ion-item>
+            </ion-col>
+          </ion-row>
+          <ion-row>
+            <ion-col size="12" size-md="6">
+              <ion-item>
+                <ion-label position="stacked">Mobile *</ion-label>
+                <ion-input [(ngModel)]="newUser.mobile" type="tel" placeholder="Enter mobile number" required></ion-input>
+              </ion-item>
+            </ion-col>
+            <ion-col size="12" size-md="6">
+              <ion-item>
+                <ion-label position="stacked">Role *</ion-label>
+                <ion-select [(ngModel)]="newUser.role" placeholder="Select role" required>
+                  <ion-select-option value="admin">Admin</ion-select-option>
+                  <ion-select-option value="finance-admin">Finance Admin</ion-select-option>
+                  <ion-select-option value="content-admin">Content Admin</ion-select-option>
+                </ion-select>
+              </ion-item>
+            </ion-col>
+          </ion-row>
+          <ion-row>
+            <ion-col size="12" size-md="6">
+              <ion-item>
+                <ion-label position="stacked">Password *</ion-label>
+                <ion-input [(ngModel)]="newUser.password" type="password" placeholder="Enter password (min 6 chars)" required></ion-input>
+              </ion-item>
+            </ion-col>
+            <ion-col size="12" size-md="6">
+              <ion-item>
+                <ion-label position="stacked">Confirm Password *</ion-label>
+                <ion-input [(ngModel)]="newUser.confirmPassword" type="password" placeholder="Confirm password" required></ion-input>
+              </ion-item>
+            </ion-col>
+          </ion-row>
+          <ion-row>
+            <ion-col size="12" class="ion-text-right">
+              <ion-button (click)="showAddForm = false; resetForm()" fill="clear" color="medium">
+                Cancel
+              </ion-button>
+              <ion-button (click)="createUser()" [disabled]="loading">
+                Create User
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
+      </div>
+
+      <!-- Users List -->
+      <div *ngIf="loading && !editingUser" class="ion-text-center ion-padding">
+        <ion-spinner></ion-spinner>
+      </div>
+
+      <ion-list *ngIf="!loading || editingUser">
+        <ion-item *ngFor="let user of users">
+          <ion-label *ngIf="!editingUser || editingUser.id !== user.id">
+            <h2>{{ user.name }}</h2>
+            <p>{{ user.email }}</p>
+            <p *ngIf="user.mobile"><small>{{ user.mobile }}</small></p>
+            <p><ion-badge [color]="user.is_active !== false ? 'success' : 'danger'">{{ user.is_active !== false ? 'Active' : 'Disabled' }}</ion-badge></p>
+          </ion-label>
+
+          <!-- Edit Mode -->
+          <div *ngIf="editingUser && editingUser.id === user.id" style="width: 100%;">
+            <ion-grid>
+              <ion-row>
+                <ion-col size="12" size-md="4">
+                  <ion-item>
+                    <ion-label position="stacked">Name *</ion-label>
+                    <ion-input [(ngModel)]="editingUser.name" required></ion-input>
+                  </ion-item>
+                </ion-col>
+                <ion-col size="12" size-md="4">
+                  <ion-item>
+                    <ion-label position="stacked">Email *</ion-label>
+                    <ion-input [(ngModel)]="editingUser.email" type="email" required></ion-input>
+                  </ion-item>
+                </ion-col>
+                <ion-col size="12" size-md="4">
+                  <ion-item>
+                    <ion-label position="stacked">Mobile *</ion-label>
+                    <ion-input [(ngModel)]="editingUser.mobile" type="tel" required></ion-input>
+                  </ion-item>
+                </ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col size="12" class="ion-text-right">
+                  <ion-button (click)="cancelEdit()" fill="clear" color="medium" size="small">
+                    Cancel
+                  </ion-button>
+                  <ion-button (click)="saveUserEdit()" size="small" [disabled]="loading">
+                    Save
+                  </ion-button>
+                </ion-col>
+              </ion-row>
+            </ion-grid>
+          </div>
+
+          <!-- Action Buttons -->
+          <div *ngIf="!editingUser || editingUser.id !== user.id" slot="end" style="display: flex; gap: 8px;">
+            <ion-select
+              [value]="user.role"
+              (ionChange)="updateUserRole(user.id, $event.detail.value)"
+              interface="popover"
+              [disabled]="user.role === 'superadmin' || loading"
+              style="max-width: 150px;"
+            >
+              <ion-select-option value="admin">Admin</ion-select-option>
+              <ion-select-option value="finance-admin">Finance Admin</ion-select-option>
+              <ion-select-option value="content-admin">Content Admin</ion-select-option>
+              <ion-select-option value="superadmin" *ngIf="user.role === 'superadmin'">Super Admin</ion-select-option>
+            </ion-select>
+
+            <ion-button
+              *ngIf="user.role !== 'superadmin'"
+              (click)="startEditUser(user)"
+              fill="clear"
+              color="primary"
+              [disabled]="loading"
+            >
+              <ion-icon name="create-outline"></ion-icon>
+            </ion-button>
+
+            <ion-button
+              *ngIf="user.role !== 'superadmin'"
+              (click)="toggleUserStatus(user.id, user.is_active !== false)"
+              fill="clear"
+              [color]="user.is_active !== false ? 'warning' : 'success'"
+              [disabled]="loading"
+            >
+              <ion-icon [name]="user.is_active !== false ? 'close-circle-outline' : 'checkmark-circle-outline'"></ion-icon>
+            </ion-button>
+
+            <ion-button
+              *ngIf="user.role !== 'superadmin'"
+              (click)="deleteUser(user.id, user.name)"
+              fill="clear"
+              color="danger"
+              [disabled]="loading"
+            >
+              <ion-icon name="trash-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
+</ion-content>
