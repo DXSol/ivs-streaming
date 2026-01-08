@@ -202,8 +202,15 @@ export class PendingUsdInvoicesPage implements OnInit {
 
   formatDate(dateString: string): string {
     // The database stores timestamps in UTC
-    // Convert UTC to IST by explicitly parsing as UTC and formatting in IST timezone
-    const date = new Date(dateString);
+    // PostgreSQL returns timestamps without 'Z' suffix, so we need to ensure it's parsed as UTC
+    let date: Date;
+
+    // If the dateString doesn't end with 'Z', append it to ensure UTC parsing
+    if (!dateString.endsWith('Z') && !dateString.includes('+')) {
+      date = new Date(dateString + 'Z');
+    } else {
+      date = new Date(dateString);
+    }
 
     // Format with IST timezone
     return new Intl.DateTimeFormat('en-IN', {
