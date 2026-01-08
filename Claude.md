@@ -15,6 +15,9 @@
 - Only merge to `main` when the user explicitly requests deployment to production
 - All commits should be made to `nice-wu` branch
 
+**IMPORTANT - Model to be used:**
+- Always use Claude Opus 4.5
+
 ## Technology Stack
 
 ### Frontend
