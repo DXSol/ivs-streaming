@@ -12,6 +12,8 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Copy all .env files if they exist
+COPY .env* ./ 
 # Build TypeScript
 RUN npm run build
 
@@ -44,9 +46,8 @@ COPY --from=builder /app/dist ./dist
 # Copy templates for PDF generation
 COPY --from=builder /app/src/templates ./dist/templates
 
-# Note: Environment variables should be passed via docker-compose or -e flags
-# The .env.production file is NOT copied into the image for security
-# All env vars are provided at runtime via docker-compose.yml
+# Copy .env files from builder stage to production stage
+COPY --from=builder /app/.env* ./
 
 # Create uploads directory
 RUN mkdir -p /app/uploads && chmod 777 /app/uploads

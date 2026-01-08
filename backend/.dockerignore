@@ -1,11 +1,11 @@
 node_modules
 dist
 npm-debug.log
-.env
-.env.*
 *.log
 .git
 .gitignore
 README.md
 Dockerfile
 .dockerignore
+# Note: .env files are intentionally NOT ignored so they can be copied into the Docker image
+# The Dockerfile will copy .env.production and other .env files as needed

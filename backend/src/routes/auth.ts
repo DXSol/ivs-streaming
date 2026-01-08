@@ -38,13 +38,18 @@ router.post('/login', async (req, res) => {
   const { email, password } = parsed.data;
 
   const result = await pool.query(
-    'SELECT id, name, email, password_hash, role, mobile, country, address FROM users WHERE email = $1 OR mobile = $1',
+    'SELECT id, name, email, password_hash, role, mobile, country, address, is_active FROM users WHERE email = $1 OR mobile = $1',
     [email]
   );
 
   const user = result.rows[0];
   if (!user) {
     return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  // Check if user is active
+  if (!user.is_active) {
+    return res.status(401).json({ error: 'Account is disabled' });
   }
 
   const ok = await bcrypt.compare(password, user.password_hash);

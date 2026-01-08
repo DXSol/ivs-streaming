@@ -218,7 +218,9 @@ router.get('/:id/pdf', requireAuth, async (req: Request, res: Response) => {
     const params: any[] = [invoiceId];
 
     // Regular users can only see their own invoices
-    if (userRole !== 'admin') {
+    // Admins (all admin roles) can see all invoices
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    if (!adminRoles.includes(userRole)) {
       query += ` AND i.user_id = $2`;
       params.push(userId);
     }
@@ -310,7 +312,9 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const params: any[] = [invoiceId];
 
     // Regular users can only see their own invoices
-    if (userRole !== 'admin') {
+    // Admins (all admin roles) can see all invoices
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    if (!adminRoles.includes(userRole)) {
       query += ` AND i.user_id = $2`;
       params.push(userId);
     }
@@ -478,6 +482,10 @@ router.post('/admin/generate-usd-invoice', requireAuth, requireAdmin, async (req
       amountPaise: totalPaise,
       currency: 'INR', // Store as INR after conversion
     });
+
+    if (!invoice) {
+      return res.status(500).json({ error: 'Failed to create invoice' });
+    }
 
     // Store the conversion rate in the invoice (we need to add this to the DB schema later if needed)
     // For now, just return it in the response

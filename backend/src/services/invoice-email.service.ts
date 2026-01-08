@@ -20,8 +20,12 @@ export async function sendInvoiceEmail(invoiceId: string): Promise<boolean> {
         i.subtotal_paise, i.cgst_paise, i.sgst_paise, i.igst_paise,
         i.total_paise, i.currency,
         i.company_name, i.company_address, i.company_phone, i.company_gstin, i.sac_code,
+        i.company_cin, i.company_pan, i.company_email, i.company_registration_number, i.company_udyam_number,
+        i.company_state_code, i.company_state_name, i.company_bank_name, i.company_bank_account_number,
+        i.company_bank_ifsc_code, i.company_bank_branch,
         e.title as event_title,
-        p.provider_payment_id as razorpay_payment_id
+        p.provider_payment_id as razorpay_payment_id,
+        p.created_at as payment_date
       FROM invoices i
       LEFT JOIN events e ON i.event_id = e.id
       LEFT JOIN payments p ON i.payment_id = p.id
