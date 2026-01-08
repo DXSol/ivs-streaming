@@ -14,7 +14,11 @@ import {
   IonSpinner,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { printOutline, arrowBackOutline, documentOutline } from 'ionicons/icons';
+import {
+  printOutline,
+  arrowBackOutline,
+  documentOutline,
+} from 'ionicons/icons';
 
 import { AuthService, Invoice } from '../services/auth.service';
 import { environment } from '../../environments/environment';
@@ -36,7 +40,7 @@ import { environment } from '../../environments/environment';
     IonButton,
     IonIcon,
     IonSpinner,
-  ]
+  ],
 })
 export class InvoicePage implements OnInit {
   invoice: Invoice | null = null;
@@ -55,10 +59,11 @@ export class InvoicePage implements OnInit {
 
   async ngOnInit() {
     const invoiceId = this.route.snapshot.paramMap.get('id');
-    
+
     // Get return URL from query params (defaults to /events)
-    this.returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/events';
-    
+    this.returnUrl =
+      this.route.snapshot.queryParamMap.get('returnUrl') || '/events';
+
     if (!invoiceId) {
       this.errorMessage = 'Invoice ID not provided';
       this.isLoading = false;
@@ -69,7 +74,8 @@ export class InvoicePage implements OnInit {
       const result = await this.auth.getInvoice(invoiceId);
       this.invoice = result.invoice;
       // Check if invoice uses new format (YYYYMMH-serial) - starts with year 2026+
-      this.isNewFormat = this.invoice?.invoice_number?.startsWith('2026') || false;
+      this.isNewFormat =
+        this.invoice?.invoice_number?.startsWith('2026') || false;
     } catch (err: any) {
       this.errorMessage = 'Failed to load invoice';
       console.error('Failed to load invoice:', err);
@@ -79,7 +85,9 @@ export class InvoicePage implements OnInit {
   }
 
   getInvoiceTypeLabel(type: string): string {
-    return type === 'season_ticket' ? 'Season Ticket' : 'Event Ticket';
+    return type === 'season_ticket'
+      ? 'Live Coverage Ticket'
+      : 'Live Coverage Ticket';
   }
 
   formatDate(dateStr: string): string {
@@ -87,7 +95,7 @@ export class InvoicePage implements OnInit {
     return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   }
 
@@ -108,11 +116,14 @@ export class InvoicePage implements OnInit {
       const invoiceId = this.invoice.id;
 
       // Fetch PDF as blob
-      const response = await fetch(`${environment.apiBaseUrl}/invoices/${invoiceId}/pdf`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        `${environment.apiBaseUrl}/invoices/${invoiceId}/pdf`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       if (!response.ok) {
         throw new Error('Failed to download PDF');
@@ -138,17 +149,53 @@ export class InvoicePage implements OnInit {
   }
 
   numberToWords(num: number): string {
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-      'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const ones = [
+      '',
+      'One',
+      'Two',
+      'Three',
+      'Four',
+      'Five',
+      'Six',
+      'Seven',
+      'Eight',
+      'Nine',
+      'Ten',
+      'Eleven',
+      'Twelve',
+      'Thirteen',
+      'Fourteen',
+      'Fifteen',
+      'Sixteen',
+      'Seventeen',
+      'Eighteen',
+      'Nineteen',
+    ];
+    const tens = [
+      '',
+      '',
+      'Twenty',
+      'Thirty',
+      'Forty',
+      'Fifty',
+      'Sixty',
+      'Seventy',
+      'Eighty',
+      'Ninety',
+    ];
 
     if (num === 0) return 'Zero';
 
     const convertLessThanThousand = (n: number): string => {
       if (n === 0) return '';
       if (n < 20) return ones[n];
-      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
-      return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convertLessThanThousand(n % 100) : '');
+      if (n < 100)
+        return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+      return (
+        ones[Math.floor(n / 100)] +
+        ' Hundred' +
+        (n % 100 ? ' ' + convertLessThanThousand(n % 100) : '')
+      );
     };
 
     // Indian numbering system: Crore, Lakh, Thousand, Hundred
@@ -178,7 +225,10 @@ export class InvoicePage implements OnInit {
     if (!this.invoice) return '0.00';
 
     // Calculate what the total should be based on subtotal + taxes
-    const calculatedTotal = this.invoice.subtotal_paise + this.invoice.cgst_paise + this.invoice.sgst_paise;
+    const calculatedTotal =
+      this.invoice.subtotal_paise +
+      this.invoice.cgst_paise +
+      this.invoice.sgst_paise;
 
     // Rounding adjustment is the difference
     const adjustment = this.invoice.total_paise - calculatedTotal;

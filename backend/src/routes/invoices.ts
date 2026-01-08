@@ -21,7 +21,7 @@ async function generateInvoiceNumber(): Promise<string> {
   // Get count of invoices after cutoff date
   const { rows } = await pool.query(
     `SELECT COUNT(*) as count FROM invoices WHERE invoice_date >= $1`,
-    [CUTOFF_DATE.toISOString()]
+    [CUTOFF_DATE.toISOString()],
   );
   const serial = parseInt(rows[0].count, 10) + 1;
   return `${year}${month}H${serial}`;
@@ -36,33 +36,38 @@ export async function createInvoice(params: {
   amountPaise: number;
   currency: string;
 }): Promise<{ id: string; invoice_number: string } | null> {
-  const { userId, paymentId, invoiceType, eventId, amountPaise, currency } = params;
+  const { userId, paymentId, invoiceType, eventId, amountPaise, currency } =
+    params;
 
   // Check if invoice already exists for this payment
   const existingInvoice = await pool.query(
     'SELECT id, invoice_number FROM invoices WHERE payment_id = $1',
-    [paymentId]
+    [paymentId],
   );
   if (existingInvoice.rows.length > 0) {
-    console.log(`[createInvoice] Invoice already exists for payment ${paymentId}: ${existingInvoice.rows[0].invoice_number}`);
+    console.log(
+      `[createInvoice] Invoice already exists for payment ${paymentId}: ${existingInvoice.rows[0].invoice_number}`,
+    );
     return existingInvoice.rows[0];
   }
 
   // Skip automatic invoice generation for USD payments
   // Admin will create them manually with converted INR amount
   if (currency === 'USD') {
-    console.log(`[createInvoice] Skipping automatic invoice for USD payment ${paymentId} - marking as pending`);
+    console.log(
+      `[createInvoice] Skipping automatic invoice for USD payment ${paymentId} - marking as pending`,
+    );
     await pool.query(
       'UPDATE payments SET invoice_pending = true WHERE id = $1',
-      [paymentId]
+      [paymentId],
     );
     return null;
   }
-  
+
   // Get user details
   const userResult = await pool.query(
     'SELECT name, email, address FROM users WHERE id = $1',
-    [userId]
+    [userId],
   );
   const user = userResult.rows[0];
 
@@ -90,14 +95,19 @@ export async function createInvoice(params: {
   const companyBankBranch = companyDetails.bankBranch;
 
   // Debug logging for invoice company details
-  console.log('[createInvoice] Company details from env (useOld:', useOldCompany, '):', {
-    companyName,
-    companyAddress,
-    companyPhone,
-    companyGstin,
-    sacCode,
-  });
-  
+  console.log(
+    '[createInvoice] Company details from env (useOld:',
+    useOldCompany,
+    '):',
+    {
+      companyName,
+      companyAddress,
+      companyPhone,
+      companyGstin,
+      sacCode,
+    },
+  );
+
   // Calculate GST (18% for digital services in India)
   // Split into CGST 9% + SGST 9% (intra-state)
   // Total = Subtotal + 18% GST
@@ -129,14 +139,37 @@ export async function createInvoice(params: {
               $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
     RETURNING id, invoice_number`,
     [
-      invoiceNumber, userId, paymentId, invoiceType, eventId || null,
-      user?.name || 'Customer', user?.email || '', user?.address || '',
-      subtotalPaise, cgstPaise, sgstPaise, 0, totalPaise, currency,
-      companyName, companyAddress, companyPhone, companyGstin, sacCode,
-      companyCin, companyPan, companyEmail, companyRegistrationNumber, companyUdyamNumber,
-      companyStateCode, companyStateName, companyBankName, companyBankAccountNumber,
-      companyBankIfscCode, companyBankBranch
-    ]
+      invoiceNumber,
+      userId,
+      paymentId,
+      invoiceType,
+      eventId || null,
+      user?.name || 'Customer',
+      user?.email || '',
+      user?.address || '',
+      subtotalPaise,
+      cgstPaise,
+      sgstPaise,
+      0,
+      totalPaise,
+      currency,
+      companyName,
+      companyAddress,
+      companyPhone,
+      companyGstin,
+      sacCode,
+      companyCin,
+      companyPan,
+      companyEmail,
+      companyRegistrationNumber,
+      companyUdyamNumber,
+      companyStateCode,
+      companyStateName,
+      companyBankName,
+      companyBankAccountNumber,
+      companyBankIfscCode,
+      companyBankBranch,
+    ],
   );
 
   const invoiceId = rows[0].id;
@@ -145,15 +178,22 @@ export async function createInvoice(params: {
   // Send invoice email (non-blocking - don't wait for email to complete)
   // This ensures payment confirmation is not delayed by email sending
   sendInvoiceEmail(invoiceId)
-    .then(success => {
+    .then((success) => {
       if (success) {
-        console.log(`[createInvoice] Invoice email sent successfully for ${invoiceNum}`);
+        console.log(
+          `[createInvoice] Invoice email sent successfully for ${invoiceNum}`,
+        );
       } else {
-        console.error(`[createInvoice] Failed to send invoice email for ${invoiceNum}`);
+        console.error(
+          `[createInvoice] Failed to send invoice email for ${invoiceNum}`,
+        );
       }
     })
-    .catch(err => {
-      console.error(`[createInvoice] Error sending invoice email for ${invoiceNum}:`, err);
+    .catch((err) => {
+      console.error(
+        `[createInvoice] Error sending invoice email for ${invoiceNum}:`,
+        err,
+      );
     });
 
   return rows[0];
@@ -162,7 +202,7 @@ export async function createInvoice(params: {
 // GET /invoices - Get all invoices for the authenticated user
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  
+
   try {
     const { rows } = await pool.query(
       `SELECT
@@ -179,9 +219,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       LEFT JOIN events e ON i.event_id = e.id
       WHERE i.user_id = $1
       ORDER BY i.invoice_date DESC`,
-      [userId]
+      [userId],
     );
-    
+
     res.json({ invoices: rows });
   } catch (err: any) {
     console.error('Failed to fetch invoices:', err);
@@ -219,7 +259,12 @@ router.get('/:id/pdf', requireAuth, async (req: Request, res: Response) => {
 
     // Regular users can only see their own invoices
     // Admins (all admin roles) can see all invoices
-    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    const adminRoles = [
+      'admin',
+      'superadmin',
+      'finance-admin',
+      'content-admin',
+    ];
     if (!adminRoles.includes(userRole)) {
       query += ` AND i.user_id = $2`;
       params.push(userId);
@@ -258,23 +303,30 @@ router.get('/:id/pdf', requireAuth, async (req: Request, res: Response) => {
       companyCin: invoice.company_cin || undefined,
       companyPan: invoice.company_pan || undefined,
       companyEmail: invoice.company_email || undefined,
-      companyRegistrationNumber: invoice.company_registration_number || undefined,
+      companyRegistrationNumber:
+        invoice.company_registration_number || undefined,
       companyUdyamNumber: invoice.company_udyam_number || undefined,
       companyStateCode: invoice.company_state_code || undefined,
       companyStateName: invoice.company_state_name || undefined,
       companyBankName: invoice.company_bank_name || undefined,
-      companyBankAccountNumber: invoice.company_bank_account_number || undefined,
+      companyBankAccountNumber:
+        invoice.company_bank_account_number || undefined,
       companyBankIfscCode: invoice.company_bank_ifsc_code || undefined,
       companyBankBranch: invoice.company_bank_branch || undefined,
       razorpayPaymentId: invoice.razorpay_payment_id || undefined,
-      paymentDate: invoice.payment_date ? new Date(invoice.payment_date) : undefined,
+      paymentDate: invoice.payment_date
+        ? new Date(invoice.payment_date)
+        : undefined,
     };
 
     const pdfBuffer = await generateInvoicePDF(invoiceData);
 
     // Set headers for PDF download
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Invoice-${invoice.invoice_number}.pdf"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="Invoice-${invoice.invoice_number}.pdf"`,
+    );
     res.send(pdfBuffer);
   } catch (err: any) {
     console.error('Failed to generate invoice PDF:', err);
@@ -313,7 +365,12 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 
     // Regular users can only see their own invoices
     // Admins (all admin roles) can see all invoices
-    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    const adminRoles = [
+      'admin',
+      'superadmin',
+      'finance-admin',
+      'content-admin',
+    ];
     if (!adminRoles.includes(userRole)) {
       query += ` AND i.user_id = $2`;
       params.push(userId);
@@ -333,11 +390,15 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /invoices/admin/statement - Get all invoices for admin (with filters)
-router.get('/admin/statement', requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const { startDate, endDate, eventId } = req.query;
-    
-    let query = `
+router.get(
+  '/admin/statement',
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate, eventId } = req.query;
+
+      let query = `
       SELECT 
         i.id, i.invoice_number, i.invoice_date, i.invoice_type, i.event_id,
         i.customer_name, i.subtotal_paise, i.cgst_paise, i.sgst_paise, i.igst_paise,
@@ -349,59 +410,67 @@ router.get('/admin/statement', requireAuth, requireAdmin, async (req: Request, r
       LEFT JOIN payments p ON i.payment_id = p.id
       WHERE i.total_paise > 0
     `;
-    const params: any[] = [];
-    let paramIndex = 1;
-    
-    if (startDate) {
-      query += ` AND i.invoice_date >= $${paramIndex}`;
-      params.push(startDate);
-      paramIndex++;
-    }
-    
-    if (endDate) {
-      query += ` AND i.invoice_date <= $${paramIndex}`;
-      params.push(endDate);
-      paramIndex++;
-    }
-    
-    if (eventId) {
-      query += ` AND i.event_id = $${paramIndex}`;
-      params.push(eventId);
-      paramIndex++;
-    }
-    
-    query += ` ORDER BY i.invoice_date DESC`;
-    
-    const { rows } = await pool.query(query, params);
-    
-    // Calculate totals
-    const totals = rows.reduce((acc, inv) => {
-      acc.subtotal += inv.subtotal_paise;
-      acc.gst += (inv.cgst_paise + inv.sgst_paise + inv.igst_paise);
-      acc.total += inv.total_paise;
-      return acc;
-    }, { subtotal: 0, gst: 0, total: 0 });
-    
-    res.json({ 
-      invoices: rows,
-      totals: {
-        subtotal_paise: totals.subtotal,
-        gst_paise: totals.gst,
-        total_paise: totals.total,
-        count: rows.length
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (startDate) {
+        query += ` AND i.invoice_date >= $${paramIndex}`;
+        params.push(startDate);
+        paramIndex++;
       }
-    });
-  } catch (err: any) {
-    console.error('Failed to fetch invoice statement:', err);
-    res.status(500).json({ error: 'Failed to fetch invoice statement' });
-  }
-});
+
+      if (endDate) {
+        query += ` AND i.invoice_date <= $${paramIndex}`;
+        params.push(endDate);
+        paramIndex++;
+      }
+
+      if (eventId) {
+        query += ` AND i.event_id = $${paramIndex}`;
+        params.push(eventId);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY i.invoice_date DESC`;
+
+      const { rows } = await pool.query(query, params);
+
+      // Calculate totals
+      const totals = rows.reduce(
+        (acc, inv) => {
+          acc.subtotal += inv.subtotal_paise;
+          acc.gst += inv.cgst_paise + inv.sgst_paise + inv.igst_paise;
+          acc.total += inv.total_paise;
+          return acc;
+        },
+        { subtotal: 0, gst: 0, total: 0 },
+      );
+
+      res.json({
+        invoices: rows,
+        totals: {
+          subtotal_paise: totals.subtotal,
+          gst_paise: totals.gst,
+          total_paise: totals.total,
+          count: rows.length,
+        },
+      });
+    } catch (err: any) {
+      console.error('Failed to fetch invoice statement:', err);
+      res.status(500).json({ error: 'Failed to fetch invoice statement' });
+    }
+  },
+);
 
 // GET /invoices/admin/pending-usd - Get all USD payments without invoices
-router.get('/admin/pending-usd', requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const { rows } = await pool.query(
-      `SELECT
+router.get(
+  '/admin/pending-usd',
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT
         p.id as payment_id, p.provider_payment_id, p.user_id, p.event_id, p.amount_cents, p.currency,
         p.created_at,
         u.name as user_name, u.email as user_email,
@@ -415,15 +484,16 @@ router.get('/admin/pending-usd', requireAuth, requireAdmin, async (req: Request,
         AND NOT EXISTS (
           SELECT 1 FROM invoices i WHERE i.payment_id = p.id
         )
-      ORDER BY p.created_at DESC`
-    );
+      ORDER BY p.created_at DESC`,
+      );
 
-    res.json({ payments: rows });
-  } catch (err: any) {
-    console.error('Failed to fetch pending USD payments:', err);
-    res.status(500).json({ error: 'Failed to fetch pending USD payments' });
-  }
-});
+      res.json({ payments: rows });
+    } catch (err: any) {
+      console.error('Failed to fetch pending USD payments:', err);
+      res.status(500).json({ error: 'Failed to fetch pending USD payments' });
+    }
+  },
+);
 
 // POST /invoices/admin/generate-usd-invoice - Generate invoice for USD payment
 const generateUsdInvoiceSchema = z.object({
@@ -431,89 +501,106 @@ const generateUsdInvoiceSchema = z.object({
   conversionRate: z.number().positive(),
 });
 
-router.post('/admin/generate-usd-invoice', requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  const parsed = generateUsdInvoiceSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
-  }
+router.post(
+  '/admin/generate-usd-invoice',
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const parsed = generateUsdInvoiceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: 'Invalid request', details: parsed.error.flatten() });
+    }
 
-  const { paymentId, conversionRate } = parsed.data;
+    const { paymentId, conversionRate } = parsed.data;
 
-  try {
-    // Get payment details
-    const paymentResult = await pool.query(
-      `SELECT p.*, u.name, u.email, u.address, e.title as event_title
+    try {
+      // Get payment details
+      const paymentResult = await pool.query(
+        `SELECT p.*, u.name, u.email, u.address, e.title as event_title
        FROM payments p
        LEFT JOIN users u ON p.user_id = u.id
        LEFT JOIN events e ON p.event_id = e.id
        WHERE p.id = $1 AND p.currency = 'USD' AND p.status = 'success'`,
-      [paymentId]
-    );
+        [paymentId],
+      );
 
-    if (paymentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Payment not found or not a USD payment' });
+      if (paymentResult.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ error: 'Payment not found or not a USD payment' });
+      }
+
+      const payment = paymentResult.rows[0];
+
+      // Check if invoice already exists
+      const existingInvoice = await pool.query(
+        'SELECT id, invoice_number FROM invoices WHERE payment_id = $1',
+        [paymentId],
+      );
+
+      if (existingInvoice.rows.length > 0) {
+        return res
+          .status(400)
+          .json({ error: 'Invoice already exists for this payment' });
+      }
+
+      // Convert USD cents to INR paise using provided conversion rate
+      // payment.amount_cents is in USD cents (e.g., 1000 = $10.00)
+      const usdDollars = payment.amount_cents / 100;
+      const inrRupees = usdDollars * conversionRate;
+      const totalPaise = Math.round(inrRupees * 100);
+
+      // Create invoice using the existing createInvoice function
+      // The function will handle GST calculation (assuming amount is inclusive)
+      const invoice = await createInvoice({
+        userId: payment.user_id,
+        paymentId: payment.id,
+        invoiceType: payment.event_id ? 'event_ticket' : 'season_ticket',
+        eventId: payment.event_id,
+        amountPaise: totalPaise,
+        currency: 'INR', // Store as INR after conversion
+      });
+
+      if (!invoice) {
+        return res.status(500).json({ error: 'Failed to create invoice' });
+      }
+
+      // Store the conversion rate in the invoice (we need to add this to the DB schema later if needed)
+      // For now, just return it in the response
+      console.log(
+        `[generate-usd-invoice] Invoice generated for USD payment ${paymentId}: ${invoice.invoice_number}, conversion rate: ${conversionRate}`,
+      );
+
+      return res.json({
+        success: true,
+        invoice: {
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          usd_amount: usdDollars,
+          conversion_rate: conversionRate,
+          inr_amount: inrRupees,
+          total_paise: totalPaise,
+        },
+      });
+    } catch (err: any) {
+      console.error('Failed to generate USD invoice:', err);
+      return res.status(500).json({ error: 'Failed to generate invoice' });
     }
-
-    const payment = paymentResult.rows[0];
-
-    // Check if invoice already exists
-    const existingInvoice = await pool.query(
-      'SELECT id, invoice_number FROM invoices WHERE payment_id = $1',
-      [paymentId]
-    );
-
-    if (existingInvoice.rows.length > 0) {
-      return res.status(400).json({ error: 'Invoice already exists for this payment' });
-    }
-
-    // Convert USD cents to INR paise using provided conversion rate
-    // payment.amount_cents is in USD cents (e.g., 1000 = $10.00)
-    const usdDollars = payment.amount_cents / 100;
-    const inrRupees = usdDollars * conversionRate;
-    const totalPaise = Math.round(inrRupees * 100);
-
-    // Create invoice using the existing createInvoice function
-    // The function will handle GST calculation (assuming amount is inclusive)
-    const invoice = await createInvoice({
-      userId: payment.user_id,
-      paymentId: payment.id,
-      invoiceType: payment.event_id ? 'event_ticket' : 'season_ticket',
-      eventId: payment.event_id,
-      amountPaise: totalPaise,
-      currency: 'INR', // Store as INR after conversion
-    });
-
-    if (!invoice) {
-      return res.status(500).json({ error: 'Failed to create invoice' });
-    }
-
-    // Store the conversion rate in the invoice (we need to add this to the DB schema later if needed)
-    // For now, just return it in the response
-    console.log(`[generate-usd-invoice] Invoice generated for USD payment ${paymentId}: ${invoice.invoice_number}, conversion rate: ${conversionRate}`);
-
-    return res.json({
-      success: true,
-      invoice: {
-        id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        usd_amount: usdDollars,
-        conversion_rate: conversionRate,
-        inr_amount: inrRupees,
-        total_paise: totalPaise,
-      },
-    });
-  } catch (err: any) {
-    console.error('Failed to generate USD invoice:', err);
-    return res.status(500).json({ error: 'Failed to generate invoice' });
-  }
-});
+  },
+);
 
 // GET /invoices/admin/export - Export invoices as CSV
-router.get('/admin/export', requireAuth, requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const { startDate, endDate, eventId } = req.query;
-    
-    let query = `
+router.get(
+  '/admin/export',
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate, eventId } = req.query;
+
+      let query = `
       SELECT 
         i.invoice_number, i.invoice_date, i.invoice_type,
         i.customer_name, i.subtotal_paise, i.cgst_paise, i.sgst_paise, i.igst_paise,
@@ -525,64 +612,83 @@ router.get('/admin/export', requireAuth, requireAdmin, async (req: Request, res:
       LEFT JOIN payments p ON i.payment_id = p.id
       WHERE i.total_paise > 0
     `;
-    const params: any[] = [];
-    let paramIndex = 1;
-    
-    if (startDate) {
-      query += ` AND i.invoice_date >= $${paramIndex}`;
-      params.push(startDate);
-      paramIndex++;
-    }
-    
-    if (endDate) {
-      query += ` AND i.invoice_date <= $${paramIndex}`;
-      params.push(endDate);
-      paramIndex++;
-    }
-    
-    if (eventId) {
-      query += ` AND i.event_id = $${paramIndex}`;
-      params.push(eventId);
-      paramIndex++;
-    }
-    
-    query += ` ORDER BY i.invoice_date DESC`;
-    
-    const { rows } = await pool.query(query, params);
-    
-    // Generate CSV
-    const headers = ['Inv No', 'Date', 'Name', 'Event Name', 'Amount (₹)', 'GST (₹)', 'Net Amount (₹)', 'Payment Gateway Reference'];
-    const csvRows = [headers.join(',')];
-    
-    for (const inv of rows) {
-      const date = new Date(inv.invoice_date).toLocaleDateString('en-IN');
-      const amount = (inv.subtotal_paise / 100).toFixed(2);
-      const gst = ((inv.cgst_paise + inv.sgst_paise + inv.igst_paise) / 100).toFixed(2);
-      const netAmount = (inv.total_paise / 100).toFixed(2);
-      const eventName = inv.invoice_type === 'season_ticket' ? 'Season Ticket' : (inv.event_title || 'N/A');
-      
-      const row = [
-        inv.invoice_number,
-        date,
-        `"${inv.customer_name || ''}"`,
-        `"${eventName}"`,
-        amount,
-        gst,
-        netAmount,
-        inv.razorpay_payment_id || 'N/A'
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (startDate) {
+        query += ` AND i.invoice_date >= $${paramIndex}`;
+        params.push(startDate);
+        paramIndex++;
+      }
+
+      if (endDate) {
+        query += ` AND i.invoice_date <= $${paramIndex}`;
+        params.push(endDate);
+        paramIndex++;
+      }
+
+      if (eventId) {
+        query += ` AND i.event_id = $${paramIndex}`;
+        params.push(eventId);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY i.invoice_date DESC`;
+
+      const { rows } = await pool.query(query, params);
+
+      // Generate CSV
+      const headers = [
+        'Inv No',
+        'Date',
+        'Name',
+        'Event Name',
+        'Amount (₹)',
+        'GST (₹)',
+        'Net Amount (₹)',
+        'Payment Gateway Reference',
       ];
-      csvRows.push(row.join(','));
+      const csvRows = [headers.join(',')];
+
+      for (const inv of rows) {
+        const date = new Date(inv.invoice_date).toLocaleDateString('en-IN');
+        const amount = (inv.subtotal_paise / 100).toFixed(2);
+        const gst = (
+          (inv.cgst_paise + inv.sgst_paise + inv.igst_paise) /
+          100
+        ).toFixed(2);
+        const netAmount = (inv.total_paise / 100).toFixed(2);
+        const eventName =
+          inv.invoice_type === 'season_ticket'
+            ? 'Season Ticket - Access to all upcoming events'
+            : inv.event_title || 'N/A';
+
+        const row = [
+          inv.invoice_number,
+          date,
+          `"${inv.customer_name || ''}"`,
+          `"${eventName}"`,
+          amount,
+          gst,
+          netAmount,
+          inv.razorpay_payment_id || 'N/A',
+        ];
+        csvRows.push(row.join(','));
+      }
+
+      const csv = csvRows.join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=invoice-statement-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+      res.send(csv);
+    } catch (err: any) {
+      console.error('Failed to export invoices:', err);
+      res.status(500).json({ error: 'Failed to export invoices' });
     }
-    
-    const csv = csvRows.join('\n');
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=invoice-statement-${new Date().toISOString().slice(0, 10)}.csv`);
-    res.send(csv);
-  } catch (err: any) {
-    console.error('Failed to export invoices:', err);
-    res.status(500).json({ error: 'Failed to export invoices' });
-  }
-});
+  },
+);
 
 export default router;

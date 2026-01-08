@@ -64,17 +64,53 @@ async function getBrowser(): Promise<Browser> {
 
 // Number to words conversion (Indian numbering system)
 function numberToWords(num: number): string {
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const ones = [
+    '',
+    'One',
+    'Two',
+    'Three',
+    'Four',
+    'Five',
+    'Six',
+    'Seven',
+    'Eight',
+    'Nine',
+    'Ten',
+    'Eleven',
+    'Twelve',
+    'Thirteen',
+    'Fourteen',
+    'Fifteen',
+    'Sixteen',
+    'Seventeen',
+    'Eighteen',
+    'Nineteen',
+  ];
+  const tens = [
+    '',
+    '',
+    'Twenty',
+    'Thirty',
+    'Forty',
+    'Fifty',
+    'Sixty',
+    'Seventy',
+    'Eighty',
+    'Ninety',
+  ];
 
   if (num === 0) return 'Zero';
 
   const convertLessThanThousand = (n: number): string => {
     if (n === 0) return '';
     if (n < 20) return ones[n];
-    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
-    return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convertLessThanThousand(n % 100) : '');
+    if (n < 100)
+      return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+    return (
+      ones[Math.floor(n / 100)] +
+      ' Hundred' +
+      (n % 100 ? ' ' + convertLessThanThousand(n % 100) : '')
+    );
   };
 
   // Indian numbering system: Crore, Lakh, Thousand, Hundred
@@ -120,16 +156,19 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString('en-IN', {
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
   });
 }
 
 function getInvoiceTypeLabel(type: 'event_ticket' | 'season_ticket'): string {
-  return type === 'season_ticket' ? 'Season Ticket' : 'Event Ticket';
+  return type === 'season_ticket'
+    ? 'Live Coverage Ticket'
+    : 'Live Coverage Ticket';
 }
 
 function getRoundingAdjustment(invoiceData: InvoiceData): string {
-  const calculatedTotal = invoiceData.subtotalPaise + invoiceData.cgstPaise + invoiceData.sgstPaise;
+  const calculatedTotal =
+    invoiceData.subtotalPaise + invoiceData.cgstPaise + invoiceData.sgstPaise;
   const adjustment = invoiceData.totalPaise - calculatedTotal;
   const adjustmentRupees = adjustment / 100;
 
@@ -138,9 +177,13 @@ function getRoundingAdjustment(invoiceData: InvoiceData): string {
     : `(-)${Math.abs(adjustmentRupees).toFixed(2)}`;
 }
 
-export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buffer> {
+export async function generateInvoicePDF(
+  invoiceData: InvoiceData,
+): Promise<Buffer> {
   try {
-    console.log(`[PDF Service] Generating PDF for invoice ${invoiceData.invoiceNumber}...`);
+    console.log(
+      `[PDF Service] Generating PDF for invoice ${invoiceData.invoiceNumber}...`,
+    );
 
     // Load HTML template
     const templatePath = path.join(__dirname, '../templates/invoice-pdf.html');
@@ -148,7 +191,9 @@ export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buff
 
     // Determine which logo to use based on invoice number format
     const isNewFormat = invoiceData.invoiceNumber.startsWith('2026');
-    const logoFilename = isNewFormat ? 'hope-logo.png' : 'dx-solutions-logo-transparent.png';
+    const logoFilename = isNewFormat
+      ? 'hope-logo.png'
+      : 'dx-solutions-logo-transparent.png';
     const logoPath = path.join(__dirname, '../templates', logoFilename);
     let logoBase64 = '';
 
@@ -165,17 +210,20 @@ export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buff
     const total = formatCurrency(invoiceData.totalPaise);
 
     // Build conditional rows
-    const cgstRow = invoiceData.cgstPaise > 0
-      ? `<div class="summary-row"><span>CGST (9%)</span><span>₹${cgst}</span></div>`
-      : '';
+    const cgstRow =
+      invoiceData.cgstPaise > 0
+        ? `<div class="summary-row"><span>CGST (9%)</span><span>₹${cgst}</span></div>`
+        : '';
 
-    const sgstRow = invoiceData.sgstPaise > 0
-      ? `<div class="summary-row"><span>SGST (9%)</span><span>₹${sgst}</span></div>`
-      : '';
+    const sgstRow =
+      invoiceData.sgstPaise > 0
+        ? `<div class="summary-row"><span>SGST (9%)</span><span>₹${sgst}</span></div>`
+        : '';
 
-    const igstRow = invoiceData.igstPaise > 0
-      ? `<div class="summary-row"><span>IGST (18%)</span><span>₹${igst}</span></div>`
-      : '';
+    const igstRow =
+      invoiceData.igstPaise > 0
+        ? `<div class="summary-row"><span>IGST (18%)</span><span>₹${igst}</span></div>`
+        : '';
 
     const eventTitleBlock = invoiceData.eventTitle
       ? `<div class="event-date">${formatDate(invoiceData.invoiceDate)} Concert</div>`
@@ -192,20 +240,38 @@ export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buff
       .replace(/{{companyStateName}}/g, invoiceData.companyStateName || '')
       .replace(/{{companyCin}}/g, invoiceData.companyCin || '')
       .replace(/{{companyEmail}}/g, invoiceData.companyEmail || '')
-      .replace(/{{companyRegistrationNumber}}/g, invoiceData.companyRegistrationNumber || '')
+      .replace(
+        /{{companyRegistrationNumber}}/g,
+        invoiceData.companyRegistrationNumber || '',
+      )
       .replace(/{{companyUdyamNumber}}/g, invoiceData.companyUdyamNumber || '')
       .replace(/{{companyPan}}/g, invoiceData.companyPan || '')
       .replace(/{{companyBankName}}/g, invoiceData.companyBankName || '')
-      .replace(/{{companyBankAccountNumber}}/g, invoiceData.companyBankAccountNumber || '')
-      .replace(/{{companyBankIfscCode}}/g, invoiceData.companyBankIfscCode || '')
+      .replace(
+        /{{companyBankAccountNumber}}/g,
+        invoiceData.companyBankAccountNumber || '',
+      )
+      .replace(
+        /{{companyBankIfscCode}}/g,
+        invoiceData.companyBankIfscCode || '',
+      )
       .replace(/{{companyBankBranch}}/g, invoiceData.companyBankBranch || '')
       .replace(/{{invoiceNumber}}/g, invoiceData.invoiceNumber)
       .replace(/{{invoiceDate}}/g, formatDate(invoiceData.invoiceDate))
       .replace(/{{razorpayPaymentId}}/g, invoiceData.razorpayPaymentId || '-')
-      .replace(/{{paymentDate}}/g, invoiceData.paymentDate ? formatDate(invoiceData.paymentDate) : '')
+      .replace(
+        /{{paymentDate}}/g,
+        invoiceData.paymentDate ? formatDate(invoiceData.paymentDate) : '',
+      )
       .replace(/{{customerName}}/g, invoiceData.customerName || 'Customer')
-      .replace(/{{invoiceTypeLabel}}/g, getInvoiceTypeLabel(invoiceData.invoiceType))
-      .replace(/{{eventTitle}}/g, invoiceData.eventTitle || getInvoiceTypeLabel(invoiceData.invoiceType))
+      .replace(
+        /{{invoiceTypeLabel}}/g,
+        getInvoiceTypeLabel(invoiceData.invoiceType),
+      )
+      .replace(
+        /{{eventTitle}}/g,
+        invoiceData.eventTitle || getInvoiceTypeLabel(invoiceData.invoiceType),
+      )
       .replace(/{{eventTitleBlock}}/g, eventTitleBlock)
       .replace(/{{sacCode}}/g, invoiceData.sacCode || '999629')
       .replace(/{{subtotal}}/g, subtotal)
@@ -240,7 +306,9 @@ export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buff
         },
       });
 
-      console.log(`[PDF Service] PDF generated successfully for invoice ${invoiceData.invoiceNumber}`);
+      console.log(
+        `[PDF Service] PDF generated successfully for invoice ${invoiceData.invoiceNumber}`,
+      );
 
       return Buffer.from(pdfBuffer);
     } finally {

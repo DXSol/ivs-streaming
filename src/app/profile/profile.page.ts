@@ -18,10 +18,20 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
-  personOutline, mailOutline, callOutline, globeOutline, locationOutline,
-  saveOutline, alertCircleOutline, checkmarkCircleOutline,
-  lockClosedOutline, keyOutline, chevronDownOutline, chevronUpOutline,
-  receiptOutline, downloadOutline
+  personOutline,
+  mailOutline,
+  callOutline,
+  globeOutline,
+  locationOutline,
+  saveOutline,
+  alertCircleOutline,
+  checkmarkCircleOutline,
+  lockClosedOutline,
+  keyOutline,
+  chevronDownOutline,
+  chevronUpOutline,
+  receiptOutline,
+  downloadOutline,
 } from 'ionicons/icons';
 
 import { AuthService, User, Invoice } from '../services/auth.service';
@@ -48,11 +58,11 @@ import { FooterComponent } from '../shared/footer/footer.component';
     IonIcon,
     IonSpinner,
     FooterComponent,
-  ]
+  ],
 })
 export class ProfilePage implements OnInit {
   user: User | null = null;
-  
+
   name = '';
   email = '';
   mobile = '';
@@ -79,15 +89,22 @@ export class ProfilePage implements OnInit {
   isLoadingInvoices = false;
   showInvoicesSection = false;
 
-  constructor(
-    private auth: AuthService,
-    private router: Router
-  ) {
+  constructor(private auth: AuthService, private router: Router) {
     addIcons({
-      personOutline, mailOutline, callOutline, globeOutline, locationOutline,
-      saveOutline, alertCircleOutline, checkmarkCircleOutline,
-      lockClosedOutline, keyOutline, chevronDownOutline, chevronUpOutline,
-      receiptOutline, downloadOutline
+      personOutline,
+      mailOutline,
+      callOutline,
+      globeOutline,
+      locationOutline,
+      saveOutline,
+      alertCircleOutline,
+      checkmarkCircleOutline,
+      lockClosedOutline,
+      keyOutline,
+      chevronDownOutline,
+      chevronUpOutline,
+      receiptOutline,
+      downloadOutline,
     });
   }
 
@@ -127,12 +144,14 @@ export class ProfilePage implements OnInit {
 
   viewInvoice(invoice: Invoice) {
     this.router.navigate(['/invoice', invoice.id], {
-      queryParams: { returnUrl: '/profile' }
+      queryParams: { returnUrl: '/profile' },
     });
   }
 
   getInvoiceTypeLabel(type: string): string {
-    return type === 'season_ticket' ? 'Season Ticket' : 'Event Ticket';
+    return type === 'season_ticket'
+      ? 'Live Coverage Ticket'
+      : 'Live Coverage Ticket';
   }
 
   formatDate(dateStr: string): string {
@@ -140,7 +159,7 @@ export class ProfilePage implements OnInit {
     return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   }
 
@@ -173,11 +192,12 @@ export class ProfilePage implements OnInit {
         address: this.address.trim() || undefined,
       });
       this.successMessage = 'Profile updated successfully!';
-      
+
       // Refresh user data
       this.user = this.auth.getUserSync();
     } catch (e: any) {
-      this.errorMessage = e?.error?.error || e?.message || 'Failed to update profile';
+      this.errorMessage =
+        e?.error?.error || e?.message || 'Failed to update profile';
     } finally {
       this.isSaving = false;
     }
@@ -210,7 +230,8 @@ export class ProfilePage implements OnInit {
       this.newPassword = '';
       this.confirmNewPassword = '';
     } catch (e: any) {
-      this.passwordErrorMessage = e?.error?.error || e?.message || 'Failed to change password';
+      this.passwordErrorMessage =
+        e?.error?.error || e?.message || 'Failed to change password';
     } finally {
       this.isChangingPassword = false;
     }

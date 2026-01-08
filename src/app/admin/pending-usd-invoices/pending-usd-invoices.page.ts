@@ -22,7 +22,10 @@ import {
   AlertController,
   ToastController,
 } from '@ionic/angular/standalone';
-import { AdminApiService, PendingUSDInvoice } from '../../services/admin-api.service';
+import {
+  AdminApiService,
+  PendingUSDInvoice,
+} from '../../services/admin-api.service';
 
 @Component({
   selector: 'app-pending-usd-invoices',
@@ -75,32 +78,34 @@ export class PendingUsdInvoicesPage implements OnInit {
 
     try {
       this.pendingInvoices = await this.adminApi.listPendingUSDInvoices();
-
-      // Initialize exchange rates with a default value (current approximate rate)
-      this.pendingInvoices.forEach(invoice => {
-        if (!this.exchangeRates.has(invoice.payment_id)) {
-          this.exchangeRates.set(invoice.payment_id, 85.0); // Default USD to INR rate
-        }
-      });
+      // Do not initialize exchange rates - let user enter them
     } catch (error: any) {
-      this.errorMessage = error?.error?.error || 'Failed to load pending invoices';
+      this.errorMessage =
+        error?.error?.error || 'Failed to load pending invoices';
     } finally {
       this.isLoading = false;
     }
   }
 
-  getExchangeRate(paymentId: string): number {
-    return this.exchangeRates.get(paymentId) || 85.0;
+  getExchangeRate(paymentId: string): number | null {
+    return this.exchangeRates.get(paymentId) || null;
   }
 
   setExchangeRate(paymentId: string, rate: string | number | null | undefined) {
-    const numericRate = typeof rate === 'string' ? parseFloat(rate) : (rate || 85.0);
-    this.exchangeRates.set(paymentId, numericRate);
+    if (!rate || rate === '') {
+      this.exchangeRates.delete(paymentId);
+      return;
+    }
+    const numericRate = typeof rate === 'string' ? parseFloat(rate) : rate;
+    if (numericRate && numericRate > 0) {
+      this.exchangeRates.set(paymentId, numericRate);
+    }
   }
 
   getInrAmount(amountCents: number, paymentId: string): number {
     const amountUSD = amountCents / 100;
     const exchangeRate = this.getExchangeRate(paymentId);
+    if (!exchangeRate) return 0;
     return amountUSD * exchangeRate;
   }
 
@@ -121,10 +126,15 @@ export class PendingUsdInvoicesPage implements OnInit {
     // Confirm before creating
     const alert = await this.alertController.create({
       header: 'Create Invoice',
-      message: `Create invoice for ${invoice.user_name} (${invoice.user_email})?<br><br>
+      message: `Create invoice for ${invoice.user_name} (${
+        invoice.user_email
+      })?<br><br>
         Amount: $${(invoice.amount_cents / 100).toFixed(2)} USD<br>
         Exchange Rate: ₹${exchangeRate.toFixed(2)}<br>
-        INR Amount: ₹${this.getInrAmount(invoice.amount_cents, invoice.payment_id).toFixed(2)}`,
+        INR Amount: ₹${this.getInrAmount(
+          invoice.amount_cents,
+          invoice.payment_id
+        ).toFixed(2)}`,
       buttons: [
         {
           text: 'Cancel',
@@ -142,7 +152,10 @@ export class PendingUsdInvoicesPage implements OnInit {
     await alert.present();
   }
 
-  async processInvoiceCreation(invoice: PendingUSDInvoice, exchangeRate: number) {
+  async processInvoiceCreation(
+    invoice: PendingUSDInvoice,
+    exchangeRate: number
+  ) {
     this.processingPaymentIds.add(invoice.payment_id);
 
     try {
@@ -160,7 +173,7 @@ export class PendingUsdInvoicesPage implements OnInit {
 
       // Remove from pending list
       this.pendingInvoices = this.pendingInvoices.filter(
-        inv => inv.payment_id !== invoice.payment_id
+        (inv) => inv.payment_id !== invoice.payment_id
       );
 
       // Navigate to invoice
@@ -182,16 +195,32 @@ export class PendingUsdInvoicesPage implements OnInit {
   }
 
   getInvoiceTypeLabel(type: string): string {
-    return type === 'season_ticket' ? 'Season Ticket' : 'Event Ticket';
+    return type === 'season_ticket'
+      ? 'Live Coverage Ticket'
+      : 'Live Coverage Ticket';
   }
 
   formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleString('en-IN', {
+    // The database stores timestamps in UTC
+    // PostgreSQL returns timestamps without 'Z' suffix, so we need to ensure it's parsed as UTC
+    let date: Date;
+
+    // If the dateString doesn't end with 'Z', append it to ensure UTC parsing
+    if (!dateString.endsWith('Z') && !dateString.includes('+')) {
+      date = new Date(dateString + 'Z');
+    } else {
+      date = new Date(dateString);
+    }
+
+    // Format with IST timezone
+    return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    });
+      hour12: true,
+      timeZone: 'Asia/Kolkata',
+    }).format(date);
   }
 }

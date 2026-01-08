@@ -30,7 +30,7 @@ export async function sendInvoiceEmail(invoiceId: string): Promise<boolean> {
       LEFT JOIN events e ON i.event_id = e.id
       LEFT JOIN payments p ON i.payment_id = p.id
       WHERE i.id = $1`,
-      [invoiceId]
+      [invoiceId],
     );
 
     if (rows.length === 0) {
@@ -63,29 +63,40 @@ export async function sendInvoiceEmail(invoiceId: string): Promise<boolean> {
       companyCin: invoice.company_cin || undefined,
       companyPan: invoice.company_pan || undefined,
       companyEmail: invoice.company_email || undefined,
-      companyRegistrationNumber: invoice.company_registration_number || undefined,
+      companyRegistrationNumber:
+        invoice.company_registration_number || undefined,
       companyUdyamNumber: invoice.company_udyam_number || undefined,
       companyStateCode: invoice.company_state_code || undefined,
       companyStateName: invoice.company_state_name || undefined,
       companyBankName: invoice.company_bank_name || undefined,
-      companyBankAccountNumber: invoice.company_bank_account_number || undefined,
+      companyBankAccountNumber:
+        invoice.company_bank_account_number || undefined,
       companyBankIfscCode: invoice.company_bank_ifsc_code || undefined,
       companyBankBranch: invoice.company_bank_branch || undefined,
       razorpayPaymentId: invoice.razorpay_payment_id || undefined,
-      paymentDate: invoice.payment_date ? new Date(invoice.payment_date) : undefined,
+      paymentDate: invoice.payment_date
+        ? new Date(invoice.payment_date)
+        : undefined,
     };
 
     // Generate PDF
-    console.log(`[Invoice Email] Generating PDF for invoice ${invoice.invoice_number}...`);
+    console.log(
+      `[Invoice Email] Generating PDF for invoice ${invoice.invoice_number}...`,
+    );
     const pdfBuffer = await generateInvoicePDF(invoiceData);
     console.log(`[Invoice Email] PDF generated (${pdfBuffer.length} bytes)`);
 
     // Prepare email content
     const subject = `Tax Invoice - ${invoice.invoice_number}`;
     const totalAmount = (invoice.total_paise / 100).toFixed(2);
-    const invoiceTypeLabel = invoice.invoice_type === 'season_ticket' ? 'Season Ticket' : 'Event Ticket';
+    const invoiceTypeLabel =
+      invoice.invoice_type === 'season_ticket'
+        ? 'Live Coverage Ticket'
+        : 'Live Coverage Ticket';
     const eventInfo = invoice.event_title ? ` - ${invoice.event_title}` : '';
-    const invoiceDateFormatted = new Date(invoice.invoice_date).toLocaleDateString('en-IN', {
+    const invoiceDateFormatted = new Date(
+      invoice.invoice_date,
+    ).toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -167,7 +178,9 @@ Please find your tax invoice attached as a PDF file.
 
     if (recipientEmails && recipientEmails.length > 0) {
       for (const recipientEmail of recipientEmails) {
-        console.log(`[Invoice Email] Sending to configured recipient: ${recipientEmail}`);
+        console.log(
+          `[Invoice Email] Sending to configured recipient: ${recipientEmail}`,
+        );
         const success = await sendEmail({
           to: recipientEmail,
           subject,
@@ -184,13 +197,17 @@ Please find your tax invoice attached as a PDF file.
         }
       }
     } else {
-      console.log('[Invoice Email] No configured recipient emails found (INVOICE_RECIPIENT_EMAILS not set)');
+      console.log(
+        '[Invoice Email] No configured recipient emails found (INVOICE_RECIPIENT_EMAILS not set)',
+      );
     }
 
     // Send email to customer if email is available
     let customerEmailSent = false;
     if (invoice.customer_email && invoice.customer_email.trim() !== '') {
-      console.log(`[Invoice Email] Sending to customer: ${invoice.customer_email}`);
+      console.log(
+        `[Invoice Email] Sending to customer: ${invoice.customer_email}`,
+      );
       customerEmailSent = await sendEmail({
         to: invoice.customer_email,
         subject,
@@ -200,26 +217,39 @@ Please find your tax invoice attached as a PDF file.
       });
 
       if (customerEmailSent) {
-        console.log(`[Invoice Email] Sent to customer ${invoice.customer_email} successfully`);
+        console.log(
+          `[Invoice Email] Sent to customer ${invoice.customer_email} successfully`,
+        );
       } else {
-        console.error(`[Invoice Email] Failed to send to customer ${invoice.customer_email}`);
+        console.error(
+          `[Invoice Email] Failed to send to customer ${invoice.customer_email}`,
+        );
       }
     } else {
-      console.log('[Invoice Email] Customer email not available, skipping customer notification');
+      console.log(
+        '[Invoice Email] Customer email not available, skipping customer notification',
+      );
     }
 
     // Consider success if at least one email was sent
     const totalEmailsSent = configuredEmailsSent + (customerEmailSent ? 1 : 0);
 
     if (totalEmailsSent > 0) {
-      console.log(`[Invoice Email] Successfully sent ${totalEmailsSent} email(s) for invoice ${invoice.invoice_number}`);
+      console.log(
+        `[Invoice Email] Successfully sent ${totalEmailsSent} email(s) for invoice ${invoice.invoice_number}`,
+      );
       return true;
     } else {
-      console.error(`[Invoice Email] Failed to send any emails for invoice ${invoice.invoice_number}`);
+      console.error(
+        `[Invoice Email] Failed to send any emails for invoice ${invoice.invoice_number}`,
+      );
       return false;
     }
   } catch (error) {
-    console.error(`[Invoice Email] Error sending invoice email for ${invoiceId}:`, error);
+    console.error(
+      `[Invoice Email] Error sending invoice email for ${invoiceId}:`,
+      error,
+    );
     return false;
   }
 }
