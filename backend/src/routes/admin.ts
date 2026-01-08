@@ -501,10 +501,16 @@ router.post('/users', requireAuth, requireSuperAdmin, async (req, res) => {
   const { name, email, mobile, password, role } = parsed.data;
 
   try {
-    // Check if user already exists
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
+    // Check if email already exists
+    const existingEmail = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingEmail.rows.length > 0) {
       return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Check if mobile already exists
+    const existingMobile = await pool.query('SELECT id FROM users WHERE mobile = $1', [mobile]);
+    if (existingMobile.rows.length > 0) {
+      return res.status(400).json({ error: 'User with this mobile number already exists' });
     }
 
     // Hash password
@@ -622,6 +628,28 @@ router.put('/users/:userId', requireAuth, requireSuperAdmin, async (req, res) =>
 
     if (existing.rows[0].role === 'superadmin') {
       return res.status(403).json({ error: 'Cannot update superadmin details' });
+    }
+
+    // Check for duplicate email if updating email
+    if (email !== undefined) {
+      const emailExists = await pool.query(
+        'SELECT id FROM users WHERE email = $1 AND id != $2',
+        [email, userId]
+      );
+      if (emailExists.rows.length > 0) {
+        return res.status(400).json({ error: 'Email already in use by another user' });
+      }
+    }
+
+    // Check for duplicate mobile if updating mobile
+    if (mobile !== undefined) {
+      const mobileExists = await pool.query(
+        'SELECT id FROM users WHERE mobile = $1 AND id != $2',
+        [mobile, userId]
+      );
+      if (mobileExists.rows.length > 0) {
+        return res.status(400).json({ error: 'Mobile number already in use by another user' });
+      }
     }
 
     // Build update query dynamically

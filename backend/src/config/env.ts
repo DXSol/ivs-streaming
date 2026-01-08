@@ -6,8 +6,9 @@ import dotenv from 'dotenv';
 const nodeEnv = process.env.NODE_ENV || 'development';
 
 // Backend root directory (where .env files should be placed)
-// This resolves to: backend/ (two levels up from src/config/)
-const backendRoot = path.resolve(__dirname, '../..');
+// Use process.cwd() which gives the working directory where node was started (/app)
+// This is more reliable than __dirname which depends on compiled file structure
+const backendRoot = process.cwd();
 
 // Environment-specific file names in priority order (highest first)
 // Priority: .env.{environment}.local > .env.{environment} > .env.local > .env

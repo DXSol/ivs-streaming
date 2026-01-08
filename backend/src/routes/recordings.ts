@@ -229,8 +229,9 @@ router.get('/:eventId/playback-url', requireAuth, async (req, res) => {
     }
 
     // 4. Validate user has access and get payment date for expiry calculation
-    // Admin has unrestricted access to all recordings
-    let hasValidTicket = user.role === 'admin';
+    // All admin roles have unrestricted access to all recordings
+    const adminRoles = ['admin', 'superadmin', 'finance-admin', 'content-admin'];
+    let hasValidTicket = adminRoles.includes(user.role);
     let paymentDate: Date | undefined;
 
     if (!hasValidTicket) {
