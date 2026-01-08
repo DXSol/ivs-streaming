@@ -6,7 +6,9 @@ let resendInstance: Resend | null = null;
 function getResendInstance(): Resend {
   if (!resendInstance) {
     if (!env.resend.apiKey) {
-      throw new Error('Resend API key not configured. Set RESEND_API_KEY in .env');
+      throw new Error(
+        'Resend API key not configured. Set RESEND_API_KEY in .env',
+      );
     }
     resendInstance = new Resend(env.resend.apiKey);
   }
@@ -59,9 +61,13 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   }
 }
 
-export async function sendPasswordResetEmail(email: string, resetToken: string, resetUrl: string): Promise<boolean> {
+export async function sendPasswordResetEmail(
+  email: string,
+  resetToken: string,
+  resetUrl: string,
+): Promise<boolean> {
   const subject = 'Reset Your Password - Sankeertanotsav';
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -136,10 +142,15 @@ export interface USDPaymentNotificationParams {
   paymentDate: Date;
 }
 
-export async function sendUSDPaymentNotification(params: USDPaymentNotificationParams): Promise<boolean> {
+export async function sendUSDPaymentNotification(
+  params: USDPaymentNotificationParams,
+): Promise<boolean> {
   const subject = `[Action Required] USD Payment Received - Invoice Pending`;
 
-  const ticketTypeLabel = params.ticketType === 'season_ticket' ? 'Season Ticket' : 'Event Ticket';
+  const ticketTypeLabel =
+    params.ticketType === 'season_ticket'
+      ? 'Live Coverage Ticket'
+      : 'Live Coverage Ticket';
   const serviceDescription = params.eventTitle || ticketTypeLabel;
 
   const html = `
@@ -186,13 +197,16 @@ export async function sendUSDPaymentNotification(params: USDPaymentNotificationP
           </tr>
           <tr>
             <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; font-weight: bold;">Payment Date:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e0e0e0;">${params.paymentDate.toLocaleString('en-IN', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e0e0e0;">${params.paymentDate.toLocaleString(
+              'en-IN',
+              {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              },
+            )}</td>
           </tr>
         </table>
 

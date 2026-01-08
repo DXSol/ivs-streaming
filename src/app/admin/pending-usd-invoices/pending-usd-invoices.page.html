@@ -39,54 +39,56 @@
   <div *ngIf="!isLoading && pendingInvoices.length > 0" class="invoices-list">
     <ion-card *ngFor="let invoice of pendingInvoices" class="invoice-card">
       <ion-card-header>
-        <ion-card-title>
-          {{ invoice.user_name }}
+        <div class="card-title-row">
+          <div class="customer-name">{{ invoice.user_name }}</div>
           <span class="payment-badge">{{ getInvoiceTypeLabel(invoice.invoice_type) }}</span>
-        </ion-card-title>
+        </div>
       </ion-card-header>
 
       <ion-card-content>
         <div class="invoice-details">
           <div class="detail-row">
-            <span class="label">Customer Email:</span>
+            <span class="label">Customer Email</span>
             <span class="value">{{ invoice.user_email }}</span>
           </div>
 
           <div class="detail-row" *ngIf="invoice.event_title">
-            <span class="label">Event:</span>
+            <span class="label">Event</span>
             <span class="value">{{ invoice.event_title }}</span>
           </div>
 
           <div class="detail-row">
-            <span class="label">Payment ID:</span>
+            <span class="label">Payment ID</span>
             <span class="value code">{{ invoice.provider_payment_id }}</span>
           </div>
 
           <div class="detail-row">
-            <span class="label">Payment Date:</span>
+            <span class="label">Payment Date</span>
             <span class="value">{{ formatDate(invoice.created_at) }}</span>
           </div>
 
-          <div class="detail-row highlight">
-            <span class="label">Amount (USD):</span>
-            <span class="value">${{ (invoice.amount_cents / 100).toFixed(2) }}</span>
+          <div class="amount-card">
+            <div class="amount-label">Amount (USD)</div>
+            <div class="amount-value">${{ (invoice.amount_cents / 100).toFixed(2) }}</div>
           </div>
 
           <div class="exchange-rate-section">
-            <ion-item>
-              <ion-label position="stacked">Exchange Rate (USD to INR)</ion-label>
+            <div class="exchange-rate-input">
+              <label class="input-label">Exchange Rate (USD to INR) *</label>
               <ion-input
                 type="number"
                 step="0.01"
-                min="0"
+                min="0.01"
+                placeholder="Enter exchange rate (e.g., 85.50)"
                 [value]="getExchangeRate(invoice.payment_id)"
                 (ionInput)="setExchangeRate(invoice.payment_id, $event.target.value)"
                 [disabled]="isProcessing(invoice.payment_id)"
+                class="rate-input"
               ></ion-input>
-            </ion-item>
+            </div>
 
-            <div class="calculated-amount">
-              <span class="label">INR Amount:</span>
+            <div class="calculated-amount" *ngIf="getExchangeRate(invoice.payment_id)">
+              <span class="label">INR Amount</span>
               <span class="value">₹{{ getInrAmount(invoice.amount_cents, invoice.payment_id).toFixed(2) }}</span>
             </div>
           </div>
@@ -94,8 +96,9 @@
           <ion-button
             expand="block"
             color="primary"
+            size="large"
             (click)="createInvoice(invoice)"
-            [disabled]="isProcessing(invoice.payment_id)"
+            [disabled]="isProcessing(invoice.payment_id) || !getExchangeRate(invoice.payment_id)"
           >
             <ion-spinner *ngIf="isProcessing(invoice.payment_id)" name="crescent"></ion-spinner>
             <span *ngIf="!isProcessing(invoice.payment_id)">Create Invoice</span>
