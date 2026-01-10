@@ -25,6 +25,7 @@ export function createRoleGuard(allowedRoles: UserRole[]): CanActivateFn {
 
 // Pre-defined guards for common role combinations
 export const superAdminGuard = createRoleGuard(['superadmin']);
-export const contentAdminGuard = createRoleGuard(['superadmin', 'admin', 'content-admin']);
+export const contentAdminGuard = createRoleGuard(['superadmin', 'admin', 'content-admin', 'finance-admin']);
 export const financeAdminGuard = createRoleGuard(['superadmin', 'admin', 'finance-admin']);
 export const fullAdminGuard = createRoleGuard(['superadmin', 'admin']);
+export const allAdminGuard = createRoleGuard(['superadmin', 'admin', 'content-admin', 'finance-admin']);

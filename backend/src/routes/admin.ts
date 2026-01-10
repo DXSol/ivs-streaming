@@ -8,7 +8,7 @@ import { getStreamStatus } from '../services/ivs.service';
 const router = Router();
 
 // GET /admin/events/dashboard - Get all events with stats for admin dashboard
-router.get('/events/dashboard', requireAuth, requireRole(['admin']), async (_req, res) => {
+router.get('/events/dashboard', requireAuth, requireRole(['admin', 'superadmin', 'finance-admin', 'content-admin']), async (_req, res) => {
   try {
     // Get all events with aggregated stats
     const { rows: events } = await pool.query(`
@@ -61,7 +61,7 @@ router.get('/events/dashboard', requireAuth, requireRole(['admin']), async (_req
 });
 
 // GET /admin/events/:id/viewer-stats - Get viewer stats history for an event
-router.get('/events/:id/viewer-stats', requireAuth, requireRole(['admin']), async (req, res) => {
+router.get('/events/:id/viewer-stats', requireAuth, requireRole(['admin', 'superadmin', 'finance-admin', 'content-admin']), async (req, res) => {
   const eventId = req.params.id;
 
   try {

@@ -50,6 +50,21 @@
       </div>
     </div>
 
+    <!-- Company Tabs -->
+    <div class="company-tabs no-print">
+      <ion-segment [value]="selectedCompany" (ionChange)="onCompanyChange($event)" mode="md">
+        <ion-segment-button value="all">
+          <ion-label>All Companies</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="dx">
+          <ion-label>DX Solutions</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="hope">
+          <ion-label>Hope Advertising Private Limited</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
     <!-- Loading State -->
     <div *ngIf="isLoading" class="loading-state">
       <ion-spinner name="crescent"></ion-spinner>
@@ -89,13 +104,48 @@
         <table class="invoice-table">
           <thead>
             <tr>
-              <th>Inv No</th>
-              <th>Date</th>
-              <th>Name</th>
-              <th>Event Name</th>
-              <th class="text-right">Amount (₹)</th>
-              <th class="text-right">GST (₹)</th>
-              <th class="text-right">Net Amount (₹)</th>
+              <th class="sortable" (click)="sortBy('invoice_number')">
+                Inv No
+                <span class="sort-indicator" *ngIf="sortColumn === 'invoice_number'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
+              <th class="sortable" (click)="sortBy('invoice_date')">
+                Date
+                <span class="sort-indicator" *ngIf="sortColumn === 'invoice_date'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
+              <th class="sortable" (click)="sortBy('customer_name')">
+                Name
+                <span class="sort-indicator" *ngIf="sortColumn === 'customer_name'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
+              <th class="sortable" (click)="sortBy('event_name')">
+                Event Name
+                <span class="sort-indicator" *ngIf="sortColumn === 'event_name'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
+              <th class="text-right sortable" (click)="sortBy('subtotal_paise')">
+                Amount (₹)
+                <span class="sort-indicator" *ngIf="sortColumn === 'subtotal_paise'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
+              <th class="text-right sortable" (click)="sortBy('gst')">
+                GST (₹)
+                <span class="sort-indicator" *ngIf="sortColumn === 'gst'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
+              <th class="text-right sortable" (click)="sortBy('total_paise')">
+                Net Amount (₹)
+                <span class="sort-indicator" *ngIf="sortColumn === 'total_paise'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
               <th>Payment Ref</th>
             </tr>
           </thead>
