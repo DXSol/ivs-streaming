@@ -13,6 +13,116 @@
 </ion-header>
 
 <ion-content>
+  <!-- Diagnostic Panel Toggle Button (visible when debug mode is active) -->
+  <button
+    *ngIf="debugMode"
+    class="diagnostic-toggle-btn"
+    [class.has-anomalies]="anomalyCount > 0"
+    (click)="toggleDiagnosticPanel()"
+  >
+    {{ showDiagnosticPanel ? '✕' : '🔧' }}
+    <span *ngIf="anomalyCount > 0" class="anomaly-badge">{{ anomalyCount }}</span>
+  </button>
+
+  <!-- Diagnostic Panel -->
+  <div *ngIf="debugMode && showDiagnosticPanel" class="diagnostic-panel">
+    <div class="diagnostic-header">
+      <h3>IVS Player Diagnostics</h3>
+      <div class="diagnostic-actions">
+        <button class="diag-btn" (click)="clearDiagnosticLog()" title="Clear log">Clear</button>
+        <button class="diag-btn" (click)="exportDiagnosticLog()" title="Export to JSON">Export</button>
+        <button class="diag-btn close" (click)="toggleDiagnosticPanel()" title="Close panel">✕</button>
+      </div>
+    </div>
+
+    <!-- Real-time Metrics -->
+    <div class="diagnostic-section">
+      <h4>Real-time Metrics</h4>
+      <div class="metrics-grid">
+        <div class="metric">
+          <span class="metric-label">Position</span>
+          <span class="metric-value">{{ currentMetrics.position.toFixed(2) }}s</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Buffer</span>
+          <span class="metric-value" [class.warning]="currentMetrics.bufferDuration < 3">
+            {{ currentMetrics.bufferDuration.toFixed(2) }}s
+          </span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Quality</span>
+          <span class="metric-value">{{ currentMetrics.quality }}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Bitrate</span>
+          <span class="metric-value">{{ (currentMetrics.bitrate / 1000000).toFixed(2) }} Mbps</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Ready State</span>
+          <span class="metric-value">{{ currentMetrics.readyState }}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Network State</span>
+          <span class="metric-value">{{ currentMetrics.networkState }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token Status -->
+    <div class="diagnostic-section">
+      <h4>Token Status</h4>
+      <div class="metrics-grid">
+        <div class="metric wide">
+          <span class="metric-label">Next Refresh In</span>
+          <span class="metric-value" [class.warning]="tokenStatus.timeUntilRefresh < 60">
+            {{ tokenStatus.timeUntilRefresh }}s
+          </span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Refresh Count</span>
+          <span class="metric-value">{{ tokenStatus.refreshCount }}</span>
+        </div>
+        <div class="metric" *ngIf="tokenStatus.lastRefreshAt">
+          <span class="metric-label">Last Refresh</span>
+          <span class="metric-value">{{ formatDiagnosticTime(tokenStatus.lastRefreshAt) }}</span>
+        </div>
+        <div class="metric" *ngIf="tokenStatus.positionBeforeRefresh !== null">
+          <span class="metric-label">Pos Before</span>
+          <span class="metric-value">{{ tokenStatus.positionBeforeRefresh?.toFixed(2) }}s</span>
+        </div>
+        <div class="metric" *ngIf="tokenStatus.positionAfterRefresh !== null">
+          <span class="metric-label">Pos After</span>
+          <span class="metric-value">{{ tokenStatus.positionAfterRefresh?.toFixed(2) }}s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anomaly Summary -->
+    <div class="diagnostic-section" *ngIf="anomalyCount > 0">
+      <h4 class="anomaly-header">Anomalies Detected: {{ anomalyCount }}</h4>
+    </div>
+
+    <!-- Event Log -->
+    <div class="diagnostic-section event-log-section">
+      <h4>Event Log ({{ diagnosticEvents.length }})</h4>
+      <div class="event-log">
+        <div
+          *ngFor="let event of diagnosticEvents"
+          class="log-entry"
+          [ngClass]="getDiagnosticEventClass(event)"
+        >
+          <span class="log-time">{{ formatDiagnosticTime(event.timestamp) }}</span>
+          <span class="log-type">[{{ event.type.toUpperCase() }}]</span>
+          <span class="log-message">{{ event.message }}</span>
+          <span *ngIf="event.data" class="log-data">{{ event.data | json }}</span>
+        </div>
+        <div *ngIf="diagnosticEvents.length === 0" class="no-events">
+          No events logged yet
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="watch-layout">
     <!-- Main Content (Video + Event Info) -->
     <div class="main-column">

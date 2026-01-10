@@ -1,8 +1,37 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DatePipe, NgFor, NgIf } from '@angular/common';
+import { DatePipe, JsonPipe, NgFor, NgIf, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+
+// Diagnostic interfaces for IVS player debugging
+interface DiagnosticEvent {
+  timestamp: Date;
+  type: 'state' | 'quality' | 'buffer' | 'error' | 'seek' | 'token' | 'anomaly' | 'metric';
+  message: string;
+  data?: Record<string, any>;
+  isAnomaly?: boolean;
+}
+
+interface PlayerMetrics {
+  position: number;
+  bufferDuration: number;
+  quality: string;
+  bitrate: number;
+  playbackRate: number;
+  readyState: number;
+  networkState: number;
+}
+
+interface TokenStatus {
+  expiresAt: string;
+  timeUntilRefresh: number;
+  lastRefreshAt: Date | null;
+  refreshCount: number;
+  positionBeforeRefresh: number | null;
+  positionAfterRefresh: number | null;
+}
+
 import {
   IonBackButton,
   IonButtons,
@@ -18,7 +47,7 @@ import {
 import { addIcons } from 'ionicons';
 import { homeOutline } from 'ionicons/icons';
 
-import { IvsPlayerService } from '../services/ivs-player.service';
+import { IvsPlayerService, IvsPlayerConfig } from '../services/ivs-player.service';
 import { EventCommentDto, EventDto, EventsApiService } from '../services/events-api.service';
 import { IvsApiService } from '../services/ivs-api.service';
 import { ViewingSessionService } from '../services/viewing-session.service';
@@ -45,8 +74,10 @@ import { EventTimePipe } from '../pipes/event-time.pipe';
     IonButton,
     IonIcon,
     DatePipe,
+    JsonPipe,
     NgIf,
     NgFor,
+    NgClass,
     FooterComponent,
     EventTimePipe,
   ],
@@ -93,6 +124,12 @@ export class WatchPage implements OnInit, OnDestroy {
   private viewerCountTimer?: any;
   private recordingUrlRefreshTimer?: any;
 
+  // Error recovery state
+  private errorRetryCount = 0;
+  private maxErrorRetries = 3;
+  private errorRetryTimer?: any;
+  private lastErrorTime = 0;
+
   // Cached YouTube embed URL to prevent iframe re-rendering
   private cachedYouTubeEmbedUrl: SafeResourceUrl | null = null;
   private cachedYouTubeSourceUrl: string | null = null;
@@ -108,6 +145,33 @@ export class WatchPage implements OnInit, OnDestroy {
   private hasSeasonTicket = false;
   private seasonTicketPurchasedAt: string | null = null;
 
+  // Diagnostic mode properties
+  debugMode = false;
+  showDiagnosticPanel = false;
+  diagnosticEvents: DiagnosticEvent[] = [];
+  currentMetrics: PlayerMetrics = {
+    position: 0,
+    bufferDuration: 0,
+    quality: 'N/A',
+    bitrate: 0,
+    playbackRate: 1,
+    readyState: 0,
+    networkState: 0,
+  };
+  tokenStatus: TokenStatus = {
+    expiresAt: '',
+    timeUntilRefresh: 0,
+    lastRefreshAt: null,
+    refreshCount: 0,
+    positionBeforeRefresh: null,
+    positionAfterRefresh: null,
+  };
+  anomalyCount = 0;
+  private metricsTimer?: any;
+  private lastPosition = 0;
+  private lastPositionTime = 0;
+  private tokenExpiresAt = '';
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -118,7 +182,8 @@ export class WatchPage implements OnInit, OnDestroy {
     private recordingsApi: RecordingsApiService,
     private sanitizer: DomSanitizer,
     private ngZone: NgZone,
-    private auth: AuthService
+    private auth: AuthService,
+    private cdr: ChangeDetectorRef
   ) {
     addIcons({ homeOutline });
   }
@@ -133,6 +198,15 @@ export class WatchPage implements OnInit, OnDestroy {
     this.eventId = this.route.snapshot.paramMap.get('id');
     const mode = this.route.snapshot.queryParamMap.get('mode');
     this.isRecordingMode = mode === 'recording';
+
+    // Check for debug mode via URL parameter
+    const debugParam = this.route.snapshot.queryParamMap.get('debug');
+    this.debugMode = debugParam === 'player';
+    if (this.debugMode) {
+      this.showDiagnosticPanel = true;
+      this.logDiagnostic('metric', 'Diagnostic mode enabled', { url: window.location.href });
+      console.log('[IVS Diagnostics] Debug mode enabled. Panel visible.');
+    }
 
     if (!this.eventId) {
       this.isLoading = false;
@@ -222,18 +296,31 @@ export class WatchPage implements OnInit, OnDestroy {
 
       const { token, expiresAt } = await this.ivsApi.getPlaybackToken(this.eventId);
       const urlWithToken = `${playbackUrl}?token=${encodeURIComponent(token)}`;
-      
-      
+
+      // Player configuration
+      // FIX: Disable low-latency mode to increase buffer and prevent position jumps/audio ticks
+      // This increases the buffer from ~1.2s to ~6s, reducing micro-buffering issues
+      const playerConfig: IvsPlayerConfig = {
+        disableLowLatency: true,  // Increases buffer, reduces micro-buffering and position jumps
+        verboseLogging: this.debugMode,  // Only verbose logging in debug mode
+        // disableAutoQuality: true, // Prevents ABR switching, may reduce audio glitches (optional)
+        // maxBitrate: 3000000,      // Limits max bitrate to 3 Mbps (optional)
+      };
+
+      this.logDiagnostic('state', 'Creating player', { url: playbackUrl, hasToken: !!token });
+
+      // Configure video element for optimal streaming performance
+      this.configureVideoElement();
 
       try {
-        
         this.player = await this.ivsPlayer.createAndAttachPlayer(
           this.videoElRef.nativeElement,
-          urlWithToken
+          urlWithToken,
+          playerConfig
         );
-        
-      } catch (playerError) {
-        
+        this.logDiagnostic('state', 'Player created successfully');
+      } catch (playerError: any) {
+        this.logDiagnostic('error', `Player creation failed: ${playerError?.message}`, { error: playerError }, true);
         throw playerError;
       }
 
@@ -560,10 +647,39 @@ export class WatchPage implements OnInit, OnDestroy {
     // Refresh ~90 seconds before expiry; min 30s.
     const delayMs = Math.max(30_000, expiresAt - now - 90_000);
 
+    // Update token status for diagnostics
+    this.tokenExpiresAt = expiresAtIso;
+    this.tokenStatus.expiresAt = expiresAtIso;
+    this.tokenStatus.timeUntilRefresh = Math.round(delayMs / 1000);
+
+    this.logDiagnostic('token', `Token refresh scheduled`, {
+      expiresAt: expiresAtIso,
+      refreshInSeconds: Math.round(delayMs / 1000),
+      refreshInMinutes: (delayMs / 60000).toFixed(1),
+    });
+
     this.refreshTimer = setTimeout(async () => {
+      const positionBeforeRefresh = this.player?.getPosition?.() || 0;
+      const bufferBeforeRefresh = this.player?.getBufferDuration?.() || 0;
+      const refreshStartTime = Date.now();
+
+      this.tokenStatus.positionBeforeRefresh = positionBeforeRefresh;
+
+      this.logDiagnostic('token', 'Token refresh STARTING', {
+        positionBefore: positionBeforeRefresh.toFixed(2),
+        bufferBefore: bufferBeforeRefresh.toFixed(2),
+      });
+
       try {
         const { token, expiresAt: nextExpires } = await this.ivsApi.getPlaybackToken(eventId);
         const urlWithToken = `${playbackUrl}?token=${encodeURIComponent(token)}`;
+
+        const tokenFetchDuration = Date.now() - refreshStartTime;
+
+        this.logDiagnostic('token', `New token received (${tokenFetchDuration}ms)`, {
+          fetchDuration: tokenFetchDuration,
+          newExpiresAt: nextExpires,
+        });
 
         // Reload the playlist with a fresh token.
         if (this.player?.load) {
@@ -571,8 +687,56 @@ export class WatchPage implements OnInit, OnDestroy {
           await this.player.play();
         }
 
+        const positionAfterRefresh = this.player?.getPosition?.() || 0;
+        const bufferAfterRefresh = this.player?.getBufferDuration?.() || 0;
+        const totalRefreshDuration = Date.now() - refreshStartTime;
+
+        this.tokenStatus.positionAfterRefresh = positionAfterRefresh;
+        this.tokenStatus.lastRefreshAt = new Date();
+        this.tokenStatus.refreshCount++;
+
+        const positionDelta = positionAfterRefresh - positionBeforeRefresh;
+        const isAnomalousJump = Math.abs(positionDelta) > 1;
+
+        this.logDiagnostic(
+          'token',
+          `Token refresh COMPLETED (${totalRefreshDuration}ms)`,
+          {
+            positionBefore: positionBeforeRefresh.toFixed(2),
+            positionAfter: positionAfterRefresh.toFixed(2),
+            positionDelta: positionDelta.toFixed(2),
+            bufferBefore: bufferBeforeRefresh.toFixed(2),
+            bufferAfter: bufferAfterRefresh.toFixed(2),
+            totalDuration: totalRefreshDuration,
+            refreshCount: this.tokenStatus.refreshCount,
+          },
+          isAnomalousJump
+        );
+
+        if (isAnomalousJump) {
+          this.logDiagnostic(
+            'anomaly',
+            `Position jump during token refresh: ${positionDelta.toFixed(2)}s`,
+            {
+              positionBefore: positionBeforeRefresh.toFixed(2),
+              positionAfter: positionAfterRefresh.toFixed(2),
+              delta: positionDelta.toFixed(2),
+            },
+            true
+          );
+        }
+
+        // Reset position tracking after token refresh
+        this.lastPosition = positionAfterRefresh;
+        this.lastPositionTime = Date.now();
+
         this.scheduleRefresh(eventId, playbackUrl, nextExpires);
-      } catch {
+      } catch (err: any) {
+        const failureDuration = Date.now() - refreshStartTime;
+        this.logDiagnostic('error', `Token refresh FAILED after ${failureDuration}ms`, {
+          error: err?.message || 'Unknown error',
+          duration: failureDuration,
+        }, true);
         // If refresh fails, user can re-open watch page.
         this.errorMessage = 'Session expired. Please reopen the stream.';
       }
@@ -596,6 +760,12 @@ export class WatchPage implements OnInit, OnDestroy {
       clearTimeout(this.recordingUrlRefreshTimer);
       this.recordingUrlRefreshTimer = undefined;
     }
+    if (this.errorRetryTimer) {
+      clearTimeout(this.errorRetryTimer);
+      this.errorRetryTimer = undefined;
+    }
+    // Stop metrics sampling for diagnostics
+    this.stopMetricsSampling();
     // End viewing session (only for live streams, not recordings)
     if (!this.isRecordingMode) {
       this.viewingSession.endSession();
@@ -611,13 +781,24 @@ export class WatchPage implements OnInit, OnDestroy {
     const PlayerEventType = window.IVSPlayer?.PlayerEventType;
 
     if (PlayerState && PlayerEventType) {
+      // STATE_CHANGED event listener
       this.player.addEventListener(PlayerEventType.STATE_CHANGED, (state: string) => {
         this.ngZone.run(() => {
+          const position = this.player?.getPosition?.() || 0;
+          const buffer = this.player?.getBufferDuration?.() || 0;
+
+          this.logDiagnostic('state', `State changed: ${state}`, {
+            position: position.toFixed(2),
+            buffer: buffer.toFixed(2),
+          });
+
           switch (state) {
             case PlayerState.PLAYING:
               // Show 'recording' status for recordings, 'live' for live streams
               this.streamStatus = this.isRecordingMode ? 'recording' : 'live';
               this.errorMessage = '';
+              // Start metrics sampling when playing
+              this.startMetricsSampling();
               break;
             case PlayerState.ENDED:
               // Stream/recording has ended
@@ -627,6 +808,7 @@ export class WatchPage implements OnInit, OnDestroy {
               } else {
                 this.streamStatus = this.isRecordingMode ? 'ended' : 'offline';
               }
+              this.stopMetricsSampling();
               break;
             case PlayerState.IDLE:
               // IDLE can mean paused or stopped - don't show offline overlay
@@ -640,16 +822,155 @@ export class WatchPage implements OnInit, OnDestroy {
               break;
             case PlayerState.BUFFERING:
               // Keep current status while buffering
+              this.logDiagnostic('buffer', 'Buffering started', { position: position.toFixed(2) });
+              break;
+            case PlayerState.READY:
+              this.logDiagnostic('state', 'Player ready');
               break;
           }
         });
       });
 
+      // ERROR event listener with auto-retry for transient errors
       this.player.addEventListener(PlayerEventType.ERROR, (err: any) => {
         this.ngZone.run(() => {
-          this.streamStatus = 'error';
-          this.errorMessage = this.getErrorMessage(err);
+          const errorCode = err?.code || err?.type || 'unknown';
+          this.logDiagnostic('error', `Player error: ${err?.message || 'Unknown'}`, {
+            type: err?.type,
+            code: err?.code,
+            source: err?.source,
+            retryCount: this.errorRetryCount,
+          }, true);
+
+          // Attempt auto-recovery for transient errors
+          if (this.shouldAutoRetry(errorCode)) {
+            this.attemptErrorRecovery();
+          } else {
+            this.streamStatus = 'error';
+            this.errorMessage = this.getErrorMessage(err);
+          }
         });
+      });
+
+      // QUALITY_CHANGED event listener
+      this.player.addEventListener(PlayerEventType.QUALITY_CHANGED, (quality: any) => {
+        this.ngZone.run(() => {
+          const position = this.player?.getPosition?.() || 0;
+          this.logDiagnostic('quality', `Quality changed: ${quality?.name || 'unknown'}`, {
+            name: quality?.name,
+            bitrate: quality?.bitrate,
+            codecs: quality?.codecs,
+            width: quality?.width,
+            height: quality?.height,
+            position: position.toFixed(2),
+          });
+        });
+      });
+
+      // REBUFFERING event listener (if available)
+      if (PlayerEventType.REBUFFERING) {
+        this.player.addEventListener(PlayerEventType.REBUFFERING, () => {
+          this.ngZone.run(() => {
+            const position = this.player?.getPosition?.() || 0;
+            const buffer = this.player?.getBufferDuration?.() || 0;
+            this.logDiagnostic('buffer', 'Rebuffering event', {
+              position: position.toFixed(2),
+              buffer: buffer.toFixed(2),
+            }, true);
+          });
+        });
+      }
+
+      // BUFFER_UPDATE event listener (if available)
+      if (PlayerEventType.BUFFER_UPDATE) {
+        this.player.addEventListener(PlayerEventType.BUFFER_UPDATE, () => {
+          // Only log in debug mode and throttle to avoid spam
+          if (this.debugMode) {
+            const buffer = this.player?.getBufferDuration?.() || 0;
+            // Only log significant buffer changes
+            if (buffer < 3) {
+              this.logDiagnostic('buffer', `Buffer update: ${buffer.toFixed(2)}s`, { buffer });
+            }
+          }
+        });
+      }
+
+      // SEEK_COMPLETED event listener (if available)
+      if (PlayerEventType.SEEK_COMPLETED) {
+        this.player.addEventListener(PlayerEventType.SEEK_COMPLETED, (position: number) => {
+          this.ngZone.run(() => {
+            this.logDiagnostic('seek', `Seek completed to ${position?.toFixed?.(2) || position}s`, {
+              position,
+            });
+            // Reset position tracking after seek
+            this.lastPosition = position || 0;
+            this.lastPositionTime = Date.now();
+          });
+        });
+      }
+
+      // DURATION_CHANGED event listener (if available)
+      if (PlayerEventType.DURATION_CHANGED) {
+        this.player.addEventListener(PlayerEventType.DURATION_CHANGED, (duration: number) => {
+          this.ngZone.run(() => {
+            this.logDiagnostic('state', `Duration changed: ${duration?.toFixed?.(2) || duration}s`, {
+              duration,
+            });
+          });
+        });
+      }
+
+      // TEXT_METADATA_CUE event listener (if available) - can indicate stream discontinuities
+      if (PlayerEventType.TEXT_METADATA_CUE) {
+        this.player.addEventListener(PlayerEventType.TEXT_METADATA_CUE, (cue: any) => {
+          this.ngZone.run(() => {
+            this.logDiagnostic('metric', 'Metadata cue received', {
+              text: cue?.text,
+              startTime: cue?.startTime,
+              endTime: cue?.endTime,
+            });
+          });
+        });
+      }
+    }
+
+    // Video element event listeners for additional diagnostics
+    const videoEl = this.videoElRef?.nativeElement;
+    if (videoEl && this.debugMode) {
+      videoEl.addEventListener('waiting', () => {
+        this.logDiagnostic('buffer', 'Video waiting (stalled)', {
+          position: videoEl.currentTime.toFixed(2),
+          readyState: videoEl.readyState,
+          networkState: videoEl.networkState,
+        }, true);
+      });
+
+      videoEl.addEventListener('stalled', () => {
+        this.logDiagnostic('buffer', 'Video stalled', {
+          position: videoEl.currentTime.toFixed(2),
+          readyState: videoEl.readyState,
+        }, true);
+      });
+
+      videoEl.addEventListener('suspend', () => {
+        this.logDiagnostic('buffer', 'Video suspend (download paused)', {
+          position: videoEl.currentTime.toFixed(2),
+        });
+      });
+
+      videoEl.addEventListener('seeking', () => {
+        this.logDiagnostic('seek', 'Seeking started', {
+          position: videoEl.currentTime.toFixed(2),
+        });
+      });
+
+      videoEl.addEventListener('seeked', () => {
+        this.logDiagnostic('seek', 'Seeking ended', {
+          position: videoEl.currentTime.toFixed(2),
+        });
+        // Reset position tracking after user seek
+        this.lastPosition = videoEl.currentTime;
+        this.lastPositionTime = Date.now();
       });
     }
   }
@@ -716,6 +1037,126 @@ export class WatchPage implements OnInit, OnDestroy {
   }
 
   /**
+   * Determine if an error is transient and should be auto-retried.
+   * Network errors, temporary failures, and certain player errors can be recovered.
+   */
+  private shouldAutoRetry(errorCode: string): boolean {
+    // Don't retry if we've exceeded max retries
+    if (this.errorRetryCount >= this.maxErrorRetries) {
+      this.logDiagnostic('error', `Max retries (${this.maxErrorRetries}) exceeded, not retrying`);
+      return false;
+    }
+
+    // Don't retry if errors are happening too frequently (< 5 seconds apart)
+    const now = Date.now();
+    if (this.lastErrorTime > 0 && (now - this.lastErrorTime) < 5000) {
+      this.logDiagnostic('error', 'Errors occurring too frequently, not retrying');
+      return false;
+    }
+    this.lastErrorTime = now;
+
+    // Transient error codes that can be retried
+    const retryableErrors = [
+      'NetworkError',
+      'NETWORK_ERROR',
+      'TIMEOUT',
+      'MEDIA_ERR_NETWORK',
+      'MEDIA_ERR_DECODE',
+      'MEDIA_ERR_SRC_NOT_SUPPORTED', // Sometimes temporary during manifest updates
+    ];
+
+    // Check if error code matches retryable errors
+    const isRetryable = retryableErrors.some(e =>
+      errorCode.toUpperCase().includes(e.toUpperCase())
+    );
+
+    return isRetryable;
+  }
+
+  /**
+   * Attempt to recover from a transient error by reloading the player.
+   */
+  private async attemptErrorRecovery(): Promise<void> {
+    this.errorRetryCount++;
+    const retryDelay = Math.min(1000 * Math.pow(2, this.errorRetryCount - 1), 10000); // Exponential backoff, max 10s
+
+    this.logDiagnostic('state', `Attempting error recovery (${this.errorRetryCount}/${this.maxErrorRetries})`, {
+      retryDelay,
+    });
+
+    // Clear any existing retry timer
+    if (this.errorRetryTimer) {
+      clearTimeout(this.errorRetryTimer);
+    }
+
+    this.errorRetryTimer = setTimeout(async () => {
+      if (!this.eventId || !this.playbackUrl || !this.player) {
+        this.logDiagnostic('error', 'Cannot recover - missing required state');
+        this.streamStatus = 'error';
+        this.errorMessage = 'Playback failed. Please reload the page.';
+        return;
+      }
+
+      try {
+        // Get a fresh token and reload
+        const { token, expiresAt } = await this.ivsApi.getPlaybackToken(this.eventId);
+        const urlWithToken = `${this.playbackUrl}?token=${encodeURIComponent(token)}`;
+
+        this.player.load(urlWithToken);
+        await this.player.play();
+
+        // Success - reset error state
+        this.errorRetryCount = 0;
+        this.lastErrorTime = 0;
+        this.errorMessage = '';
+
+        this.logDiagnostic('state', 'Error recovery successful');
+
+        // Re-schedule token refresh
+        this.scheduleRefresh(this.eventId, this.playbackUrl, expiresAt);
+      } catch (err: any) {
+        this.logDiagnostic('error', `Error recovery failed: ${err?.message}`);
+
+        // If we still have retries left, the next error will trigger another attempt
+        if (this.errorRetryCount >= this.maxErrorRetries) {
+          this.streamStatus = 'error';
+          this.errorMessage = 'Unable to recover playback. Please reload the page.';
+        }
+      }
+    }, retryDelay);
+  }
+
+  /**
+   * Configure video element with optimal settings for live streaming.
+   * Sets preload hints and other attributes for better playback stability.
+   */
+  private configureVideoElement(): void {
+    const videoEl = this.videoElRef?.nativeElement;
+    if (!videoEl) return;
+
+    // Preload metadata to speed up initial load
+    videoEl.preload = 'auto';
+
+    // Disable picture-in-picture to prevent unexpected behavior during live streams
+    if ('disablePictureInPicture' in videoEl) {
+      (videoEl as any).disablePictureInPicture = false; // Allow PiP for user convenience
+    }
+
+    // Set crossorigin for CORS-enabled streams
+    videoEl.crossOrigin = 'anonymous';
+
+    // Disable remote playback (casting) to prevent sync issues during live streams
+    if ('disableRemotePlayback' in videoEl) {
+      (videoEl as any).disableRemotePlayback = true;
+    }
+
+    this.logDiagnostic('state', 'Video element configured', {
+      preload: videoEl.preload,
+      crossOrigin: videoEl.crossOrigin,
+    });
+  }
+
+  /**
    * Verify user has access to watch this paid event.
    * Returns true if: admin OR has paid ticket OR event is covered by season ticket.
    */
@@ -747,5 +1188,202 @@ export class WatchPage implements OnInit, OnDestroy {
     } catch {
       return false;
     }
+  }
+
+  // ==================== DIAGNOSTIC METHODS ====================
+
+  /**
+   * Log a diagnostic event to the panel and console
+   */
+  private logDiagnostic(
+    type: DiagnosticEvent['type'],
+    message: string,
+    data?: Record<string, any>,
+    isAnomaly = false
+  ): void {
+    if (!this.debugMode) return;
+
+    const event: DiagnosticEvent = {
+      timestamp: new Date(),
+      type,
+      message,
+      data,
+      isAnomaly,
+    };
+
+    // Keep last 100 events
+    this.diagnosticEvents.unshift(event);
+    if (this.diagnosticEvents.length > 100) {
+      this.diagnosticEvents.pop();
+    }
+
+    if (isAnomaly) {
+      this.anomalyCount++;
+    }
+
+    // Console logging with color coding
+    const prefix = `[IVS ${type.toUpperCase()}]`;
+    const style = isAnomaly ? 'color: red; font-weight: bold' : 'color: #666';
+    console.log(`%c${prefix} ${message}`, style, data || '');
+
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Start periodic metrics sampling (every 1 second)
+   */
+  private startMetricsSampling(): void {
+    if (!this.debugMode || this.metricsTimer) return;
+
+    this.lastPosition = this.player?.getPosition?.() || 0;
+    this.lastPositionTime = Date.now();
+
+    this.metricsTimer = setInterval(() => {
+      this.sampleMetrics();
+    }, 1000);
+
+    this.logDiagnostic('metric', 'Metrics sampling started (1s interval)');
+  }
+
+  /**
+   * Sample current player metrics and detect anomalies
+   */
+  private sampleMetrics(): void {
+    if (!this.player || !this.debugMode) return;
+
+    const videoEl = this.videoElRef?.nativeElement;
+    const now = Date.now();
+
+    try {
+      const position = this.player.getPosition?.() || 0;
+      const bufferDuration = this.player.getBufferDuration?.() || 0;
+      const quality = this.player.getQuality?.();
+      const qualities = this.player.getQualities?.() || [];
+
+      this.currentMetrics = {
+        position: Math.round(position * 1000) / 1000,
+        bufferDuration: Math.round(bufferDuration * 1000) / 1000,
+        quality: quality?.name || 'auto',
+        bitrate: quality?.bitrate || 0,
+        playbackRate: videoEl?.playbackRate || 1,
+        readyState: videoEl?.readyState || 0,
+        networkState: videoEl?.networkState || 0,
+      };
+
+      // Update token status countdown
+      if (this.tokenExpiresAt) {
+        const expiresAtMs = new Date(this.tokenExpiresAt).getTime();
+        this.tokenStatus.timeUntilRefresh = Math.max(0, Math.round((expiresAtMs - now - 90000) / 1000));
+      }
+
+      // Anomaly detection: Position jump
+      const expectedPosition = this.lastPosition + (now - this.lastPositionTime) / 1000;
+      const positionDelta = Math.abs(position - expectedPosition);
+
+      // Detect position jumps > 0.5s that aren't from user seeking
+      if (positionDelta > 0.5 && this.lastPosition > 0) {
+        this.logDiagnostic(
+          'anomaly',
+          `Position jump detected: ${positionDelta.toFixed(2)}s`,
+          {
+            expected: expectedPosition.toFixed(2),
+            actual: position.toFixed(2),
+            delta: positionDelta.toFixed(2),
+            lastPosition: this.lastPosition.toFixed(2),
+          },
+          true
+        );
+      }
+
+      // Anomaly detection: Low buffer
+      if (bufferDuration < 2 && bufferDuration > 0) {
+        this.logDiagnostic(
+          'anomaly',
+          `Low buffer warning: ${bufferDuration.toFixed(2)}s`,
+          { bufferDuration, position },
+          true
+        );
+      }
+
+      this.lastPosition = position;
+      this.lastPositionTime = now;
+
+      this.cdr.detectChanges();
+    } catch (e) {
+      // Silently handle metric sampling errors
+    }
+  }
+
+  /**
+   * Stop metrics sampling
+   */
+  private stopMetricsSampling(): void {
+    if (this.metricsTimer) {
+      clearInterval(this.metricsTimer);
+      this.metricsTimer = undefined;
+      this.logDiagnostic('metric', 'Metrics sampling stopped');
+    }
+  }
+
+  /**
+   * Toggle diagnostic panel visibility
+   */
+  toggleDiagnosticPanel(): void {
+    this.showDiagnosticPanel = !this.showDiagnosticPanel;
+  }
+
+  /**
+   * Clear diagnostic events log
+   */
+  clearDiagnosticLog(): void {
+    this.diagnosticEvents = [];
+    this.anomalyCount = 0;
+    this.logDiagnostic('metric', 'Diagnostic log cleared');
+  }
+
+  /**
+   * Export diagnostic log as JSON
+   */
+  exportDiagnosticLog(): void {
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      eventId: this.eventId,
+      totalEvents: this.diagnosticEvents.length,
+      anomalyCount: this.anomalyCount,
+      tokenStatus: this.tokenStatus,
+      currentMetrics: this.currentMetrics,
+      events: this.diagnosticEvents,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ivs-diagnostics-${this.eventId}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    this.logDiagnostic('metric', 'Diagnostic log exported');
+  }
+
+  /**
+   * Format timestamp for display
+   */
+  formatDiagnosticTime(date: Date): string {
+    return date.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+    } as Intl.DateTimeFormatOptions);
+  }
+
+  /**
+   * Get CSS class for diagnostic event type
+   */
+  getDiagnosticEventClass(event: DiagnosticEvent): string {
+    if (event.isAnomaly) return 'anomaly';
+    return event.type;
   }
 }
