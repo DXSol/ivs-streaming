@@ -137,6 +137,25 @@ export class WatchPage implements OnInit, OnDestroy {
   private stallRecoveryTimer?: any;
   private consecutiveStalls = 0;
 
+  // Adaptive quality management
+  private qualityCeiling: any = null; // null = no ceiling (auto)
+  private sessionMaxStableQuality: any = null; // Highest quality that played stably this session
+  private stablePlaybackStartTime = 0;
+  private qualityStableThreshold = 60000; // 60 seconds of stable playback to consider quality stable
+  private lastQualityChangeTime = 0;
+  private currentQualityBitrate = 0;
+  private qualityAdjustmentInProgress = false;
+
+  // Progressive recovery timing
+  private recoveryWaitTimes = [30000, 60000, 120000]; // 30s, 60s, 120s
+  private currentRecoveryWaitIndex = 0;
+  private lastRecoveryAttemptTime = 0;
+
+  // Quality notification
+  showQualityNotification = false;
+  qualityNotificationMessage = '';
+  private qualityNotificationTimer?: any;
+
   // Cached YouTube embed URL to prevent iframe re-rendering
   private cachedYouTubeEmbedUrl: SafeResourceUrl | null = null;
   private cachedYouTubeSourceUrl: string | null = null;
@@ -307,10 +326,10 @@ export class WatchPage implements OnInit, OnDestroy {
       // Player configuration
       // FIX: Disable low-latency mode to increase buffer and prevent position jumps/audio ticks
       // This increases the buffer from ~1.2s to ~6s, reducing micro-buffering issues
+      // NOTE: No maxBitrate set - using adaptive quality management instead
       const playerConfig: IvsPlayerConfig = {
         disableLowLatency: true,  // Increases buffer, reduces micro-buffering and position jumps
         verboseLogging: this.debugMode,  // Only verbose logging in debug mode
-        maxBitrate: 3500000,      // Limit to 3.5 Mbps (720p) to prevent stalls - 1080p is 6.4 Mbps
       };
 
       this.logDiagnostic('state', 'Creating player', { url: playbackUrl, hasToken: !!token });
@@ -753,6 +772,10 @@ export class WatchPage implements OnInit, OnDestroy {
       clearTimeout(this.stallRecoveryTimer);
       this.stallRecoveryTimer = undefined;
     }
+    if (this.qualityNotificationTimer) {
+      clearTimeout(this.qualityNotificationTimer);
+      this.qualityNotificationTimer = undefined;
+    }
     // Stop metrics sampling for diagnostics
     this.stopMetricsSampling();
     // End viewing session (only for live streams, not recordings)
@@ -1015,26 +1038,31 @@ export class WatchPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Attempt to recover from a persistent stall.
+   * Attempt to recover from a persistent stall using adaptive quality management.
+   * Uses progressive recovery timing and remembers quality that works for the session.
    */
   private attemptStallRecovery(videoEl: HTMLVideoElement): void {
-    this.lastStallRecoveryTime = Date.now();
+    const now = Date.now();
+    this.lastStallRecoveryTime = now;
 
     const buffer = this.player?.getBufferDuration?.() || 0;
     const liveLatency = this.player?.getLiveLatency?.() || 0;
+    const currentQuality = this.player?.getQuality?.();
 
     this.logDiagnostic('state', `Attempting stall recovery`, {
       consecutiveStalls: this.consecutiveStalls,
       buffer: buffer.toFixed(2),
       liveLatency: liveLatency.toFixed(2),
       position: videoEl.currentTime.toFixed(2),
+      currentQuality: currentQuality?.name,
+      qualityCeiling: this.qualityCeiling?.name || 'none',
     });
 
     // Strategy based on consecutive stalls
-    if (this.consecutiveStalls <= 3) {
+    if (this.consecutiveStalls <= 2) {
       // Strategy 1: Try to seek slightly forward within buffer
       if (buffer > 2) {
-        const seekTarget = videoEl.currentTime + 1; // Seek 1 second forward
+        const seekTarget = videoEl.currentTime + 1;
         this.logDiagnostic('state', `Recovery: Seeking forward to ${seekTarget.toFixed(2)}`);
         if (typeof this.player?.seekTo === 'function') {
           this.player.seekTo(seekTarget);
@@ -1042,33 +1070,261 @@ export class WatchPage implements OnInit, OnDestroy {
           videoEl.currentTime = seekTarget;
         }
       }
-    } else if (this.consecutiveStalls <= 6) {
+    } else if (this.consecutiveStalls <= 4) {
       // Strategy 2: Seek to live edge
       this.logDiagnostic('state', 'Recovery: Seeking to live edge');
       if (typeof this.player?.seekTo === 'function' && liveLatency > 0) {
-        this.player.seekTo(videoEl.currentTime + liveLatency - 3); // 3 seconds behind live
-      }
-    } else if (this.consecutiveStalls <= 10) {
-      // Strategy 3: Lower quality if possible
-      this.logDiagnostic('state', 'Recovery: Attempting to lower quality');
-      const qualities = this.player?.getQualities?.() || [];
-      const currentQuality = this.player?.getQuality?.();
-      if (qualities.length > 1 && currentQuality) {
-        const lowerQuality = qualities.find((q: any) => q.bitrate < currentQuality.bitrate);
-        if (lowerQuality && typeof this.player?.setQuality === 'function') {
-          this.player.setQuality(lowerQuality);
-          this.logDiagnostic('state', `Recovery: Switched to ${lowerQuality.name}`);
-        }
+        this.player.seekTo(videoEl.currentTime + liveLatency - 3);
       }
     } else {
-      // Strategy 4: Full reload with cached token
-      this.logDiagnostic('state', 'Recovery: Full reload required');
-      this.consecutiveStalls = 0;
-      if (this.cachedTokenUrl && this.player) {
+      // Strategy 3: Lower quality ceiling and enforce it
+      this.lowerQualityCeiling();
+    }
+  }
+
+  /**
+   * Lower the quality ceiling when playback issues persist.
+   * This sets a cap on the maximum quality ABR can select.
+   * Uses session's known-good quality if available.
+   */
+  private lowerQualityCeiling(): void {
+    const qualities = this.player?.getQualities?.() || [];
+    const currentQuality = this.player?.getQuality?.();
+
+    if (qualities.length <= 1 || !currentQuality) {
+      this.logDiagnostic('state', 'Cannot lower quality - no alternatives available');
+      // Last resort: full reload
+      if (this.consecutiveStalls > 10 && this.cachedTokenUrl && this.player) {
+        this.logDiagnostic('state', 'Recovery: Full reload required');
+        this.consecutiveStalls = 0;
         this.player.load(this.cachedTokenUrl);
         this.player.play();
       }
+      return;
     }
+
+    // Sort qualities by bitrate (highest first)
+    const sortedQualities = [...qualities].sort((a: any, b: any) => b.bitrate - a.bitrate);
+
+    // If we have a known stable quality from this session, use that as a smart fallback
+    if (this.sessionMaxStableQuality && currentQuality.bitrate > this.sessionMaxStableQuality.bitrate) {
+      this.logDiagnostic('state', `Using session's known stable quality: ${this.sessionMaxStableQuality.name}`, {
+        currentBitrate: currentQuality.bitrate,
+        stableBitrate: this.sessionMaxStableQuality.bitrate,
+      });
+
+      this.qualityCeiling = this.sessionMaxStableQuality;
+      this.qualityAdjustmentInProgress = true;
+
+      if (typeof this.player?.setQuality === 'function') {
+        this.player.setQuality(this.sessionMaxStableQuality);
+      }
+      if (typeof this.player?.setAutoQualityMode === 'function') {
+        this.player.setAutoQualityMode(false);
+      }
+
+      this.showQualityAdjustmentNotification(
+        `Optimizing for your connection`
+      );
+
+      this.consecutiveStalls = 0;
+      this.scheduleQualityRecovery();
+      return;
+    }
+
+    // Find next lower quality from current ceiling (or current quality if no ceiling)
+    const referenceQuality = this.qualityCeiling || currentQuality;
+    const lowerQualities = sortedQualities.filter((q: any) => q.bitrate < referenceQuality.bitrate);
+
+    if (lowerQualities.length === 0) {
+      this.logDiagnostic('state', 'Already at lowest quality - cannot lower further');
+      return;
+    }
+
+    // Set the new ceiling to the next lower quality
+    const newCeiling = lowerQualities[0];
+    this.qualityCeiling = newCeiling;
+    this.qualityAdjustmentInProgress = true;
+
+    this.logDiagnostic('state', `Quality ceiling lowered to: ${newCeiling.name} (${(newCeiling.bitrate / 1000000).toFixed(1)} Mbps)`, {
+      previousCeiling: referenceQuality.name,
+      newCeiling: newCeiling.name,
+    });
+
+    // Force switch to the new ceiling quality
+    if (typeof this.player?.setQuality === 'function') {
+      this.player.setQuality(newCeiling);
+    }
+
+    // Disable auto quality to enforce the ceiling temporarily
+    if (typeof this.player?.setAutoQualityMode === 'function') {
+      this.player.setAutoQualityMode(false);
+    }
+
+    // Show notification to user
+    this.showQualityAdjustmentNotification(
+      `Adjusting video quality for smoother playback`
+    );
+
+    // Reset consecutive stalls since we took action
+    this.consecutiveStalls = 0;
+
+    // Schedule progressive recovery to try higher quality later
+    this.scheduleQualityRecovery();
+  }
+
+  /**
+   * Schedule an attempt to recover to higher quality after stable playback.
+   * Uses progressive timing: 30s → 60s → 120s
+   */
+  private scheduleQualityRecovery(): void {
+    const waitTime = this.recoveryWaitTimes[Math.min(this.currentRecoveryWaitIndex, this.recoveryWaitTimes.length - 1)];
+    this.lastRecoveryAttemptTime = Date.now();
+
+    this.logDiagnostic('state', `Quality recovery scheduled in ${waitTime / 1000}s`, {
+      recoveryIndex: this.currentRecoveryWaitIndex,
+      waitTimeSeconds: waitTime / 1000,
+    });
+
+    // Clear any existing recovery timer
+    if (this.stallRecoveryTimer) {
+      clearTimeout(this.stallRecoveryTimer);
+    }
+
+    this.stallRecoveryTimer = setTimeout(() => {
+      this.attemptQualityRecovery();
+    }, waitTime);
+  }
+
+  /**
+   * Attempt to recover to a higher quality level after stable playback.
+   */
+  private attemptQualityRecovery(): void {
+    if (!this.qualityCeiling || !this.player) return;
+
+    const qualities = this.player.getQualities?.() || [];
+    const currentQuality = this.player.getQuality?.();
+
+    // Check if playback has been stable (no stalls in the recovery period)
+    const timeSinceLastStall = Date.now() - this.lastStallRecoveryTime;
+    const minStableTime = this.recoveryWaitTimes[Math.min(this.currentRecoveryWaitIndex, this.recoveryWaitTimes.length - 1)];
+
+    if (timeSinceLastStall < minStableTime) {
+      this.logDiagnostic('state', 'Playback not stable enough for quality recovery', {
+        timeSinceLastStall: (timeSinceLastStall / 1000).toFixed(0),
+        requiredStableTime: (minStableTime / 1000).toFixed(0),
+      });
+      // Reschedule with increased wait time
+      this.currentRecoveryWaitIndex = Math.min(this.currentRecoveryWaitIndex + 1, this.recoveryWaitTimes.length - 1);
+      this.scheduleQualityRecovery();
+      return;
+    }
+
+    // Find next higher quality above current ceiling
+    const sortedQualities = [...qualities].sort((a: any, b: any) => a.bitrate - b.bitrate);
+    const higherQualities = sortedQualities.filter((q: any) => q.bitrate > this.qualityCeiling.bitrate);
+
+    if (higherQualities.length === 0) {
+      // Already at max quality - remove ceiling entirely
+      this.logDiagnostic('state', 'Quality ceiling removed - at maximum quality');
+      this.qualityCeiling = null;
+      this.currentRecoveryWaitIndex = 0;
+
+      // Re-enable auto quality
+      if (typeof this.player.setAutoQualityMode === 'function') {
+        this.player.setAutoQualityMode(true);
+      }
+      return;
+    }
+
+    // Try the next higher quality
+    const newCeiling = higherQualities[0];
+    const previousCeiling = this.qualityCeiling;
+    this.qualityCeiling = newCeiling;
+
+    this.logDiagnostic('state', `Attempting quality recovery: ${previousCeiling.name} → ${newCeiling.name}`, {
+      previousBitrate: previousCeiling.bitrate,
+      newBitrate: newCeiling.bitrate,
+    });
+
+    // Allow ABR to select up to the new ceiling
+    if (typeof this.player.setQuality === 'function') {
+      this.player.setQuality(newCeiling);
+    }
+
+    // Re-enable auto quality mode with the new ceiling as maximum
+    if (typeof this.player.setAutoQualityMode === 'function') {
+      this.player.setAutoQualityMode(true);
+    }
+
+    // Show brief notification
+    this.showQualityAdjustmentNotification(
+      `Improving video quality`
+    );
+
+    // Reduce wait time for next recovery (playback was stable)
+    this.currentRecoveryWaitIndex = Math.max(0, this.currentRecoveryWaitIndex - 1);
+
+    // Schedule next recovery attempt to potentially go even higher
+    this.scheduleQualityRecovery();
+  }
+
+  /**
+   * Track quality stability - when quality plays without issues for a threshold period,
+   * remember it as the session's known-good quality.
+   */
+  private updateStableQualityTracking(): void {
+    if (!this.player) return;
+
+    const currentQuality = this.player.getQuality?.();
+    if (!currentQuality) return;
+
+    const now = Date.now();
+
+    // If quality changed, reset stable playback timer
+    if (currentQuality.bitrate !== this.currentQualityBitrate) {
+      this.currentQualityBitrate = currentQuality.bitrate;
+      this.stablePlaybackStartTime = now;
+      this.lastQualityChangeTime = now;
+      return;
+    }
+
+    // Check if current quality has been stable for the threshold period
+    if (this.stablePlaybackStartTime > 0) {
+      const stableDuration = now - this.stablePlaybackStartTime;
+
+      if (stableDuration >= this.qualityStableThreshold) {
+        // This quality has been stable - remember it
+        if (!this.sessionMaxStableQuality || currentQuality.bitrate > this.sessionMaxStableQuality.bitrate) {
+          this.sessionMaxStableQuality = currentQuality;
+          this.logDiagnostic('quality', `Session max stable quality updated: ${currentQuality.name}`, {
+            bitrate: currentQuality.bitrate,
+            stableDuration: (stableDuration / 1000).toFixed(0),
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Show a brief notification to the user about quality adjustment.
+   * Disappears after 3 seconds.
+   */
+  private showQualityAdjustmentNotification(message: string): void {
+    // Clear any existing notification timer
+    if (this.qualityNotificationTimer) {
+      clearTimeout(this.qualityNotificationTimer);
+    }
+
+    this.qualityNotificationMessage = message;
+    this.showQualityNotification = true;
+    this.cdr.detectChanges();
+
+    // Auto-hide after 3 seconds
+    this.qualityNotificationTimer = setTimeout(() => {
+      this.showQualityNotification = false;
+      this.cdr.detectChanges();
+    }, 3000);
   }
 
   private startCommentsRefresh() {
@@ -1302,7 +1558,8 @@ export class WatchPage implements OnInit, OnDestroy {
   // ==================== DIAGNOSTIC METHODS ====================
 
   /**
-   * Log a diagnostic event to the panel and console
+   * Log a diagnostic event to the panel and console.
+   * Optimized to reduce overhead - only logs to console for anomalies and important events.
    */
   private logDiagnostic(
     type: DiagnosticEvent['type'],
@@ -1330,44 +1587,68 @@ export class WatchPage implements OnInit, OnDestroy {
       this.anomalyCount++;
     }
 
-    // Console logging with color coding
-    const prefix = `[IVS ${type.toUpperCase()}]`;
-    const style = isAnomaly ? 'color: red; font-weight: bold' : 'color: #666';
-    console.log(`%c${prefix} ${message}`, style, data || '');
+    // Console logging - only for anomalies and non-metric events to reduce overhead
+    // Metric events are too frequent and cause performance issues
+    if (isAnomaly || type !== 'metric') {
+      const prefix = `[IVS ${type.toUpperCase()}]`;
+      const style = isAnomaly ? 'color: red; font-weight: bold' : 'color: #666';
+      console.log(`%c${prefix} ${message}`, style, data || '');
+    }
 
-    this.cdr.detectChanges();
+    // Only trigger change detection if panel is visible
+    if (this.showDiagnosticPanel) {
+      this.cdr.detectChanges();
+    }
   }
 
   /**
    * Start periodic metrics sampling (every 1 second)
+   * In debug mode: full metrics sampling with UI updates
+   * In normal mode: quality stability tracking only (no UI updates)
    */
   private startMetricsSampling(): void {
-    if (!this.debugMode || this.metricsTimer) return;
+    if (this.metricsTimer) return;
 
     this.lastPosition = this.player?.getPosition?.() || 0;
     this.lastPositionTime = Date.now();
+    this.stablePlaybackStartTime = Date.now();
 
     this.metricsTimer = setInterval(() => {
       this.sampleMetrics();
     }, 1000);
 
-    this.logDiagnostic('metric', 'Metrics sampling started (1s interval)');
+    if (this.debugMode) {
+      this.logDiagnostic('metric', 'Metrics sampling started (1s interval)');
+    }
   }
 
   /**
-   * Sample current player metrics and detect anomalies
+   * Sample current player metrics and detect anomalies.
+   * In debug mode: full metrics with UI updates and anomaly detection.
+   * In normal mode: only quality stability tracking.
    */
   private sampleMetrics(): void {
-    if (!this.player || !this.debugMode) return;
+    if (!this.player) return;
 
     const videoEl = this.videoElRef?.nativeElement;
     const now = Date.now();
 
     try {
       const position = this.player.getPosition?.() || 0;
-      const bufferDuration = this.player.getBufferDuration?.() || 0;
       const quality = this.player.getQuality?.();
-      const qualities = this.player.getQualities?.() || [];
+
+      // Always track stable quality for session memory
+      this.updateStableQualityTracking();
+
+      // In non-debug mode, skip the rest (no UI updates needed)
+      if (!this.debugMode) {
+        this.lastPosition = position;
+        this.lastPositionTime = now;
+        return;
+      }
+
+      // Debug mode: full metrics sampling
+      const bufferDuration = this.player.getBufferDuration?.() || 0;
 
       this.currentMetrics = {
         position: Math.round(position * 1000) / 1000,
@@ -1417,7 +1698,10 @@ export class WatchPage implements OnInit, OnDestroy {
       this.lastPosition = position;
       this.lastPositionTime = now;
 
-      this.cdr.detectChanges();
+      // Only update UI if panel is visible (reduces overhead when panel is hidden)
+      if (this.showDiagnosticPanel) {
+        this.cdr.detectChanges();
+      }
     } catch (e) {
       // Silently handle metric sampling errors
     }

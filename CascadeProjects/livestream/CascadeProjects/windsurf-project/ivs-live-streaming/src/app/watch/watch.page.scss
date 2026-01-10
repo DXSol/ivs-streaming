@@ -199,6 +199,62 @@ video::-webkit-media-controls {
   font-weight: 500;
 }
 
+// Quality adjustment notification
+.quality-notification {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 20;
+  animation: quality-notification-fade 3s ease-in-out forwards;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  @media (max-width: 480px) {
+    font-size: 12px;
+    padding: 8px 12px;
+    bottom: 50px;
+    max-width: 90%;
+  }
+}
+
+.quality-notification-icon {
+  font-size: 16px;
+}
+
+.quality-notification-message {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes quality-notification-fade {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  80% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
 // Session navigation for multi-session recordings
 .session-nav {
   background: var(--theme-card-bg);

@@ -178,6 +178,12 @@
           <span class="live-badge">● LIVE</span>
         </div>
 
+        <!-- Quality Adjustment Notification -->
+        <div *ngIf="showQualityNotification" class="quality-notification">
+          <span class="quality-notification-icon">⚙️</span>
+          <span class="quality-notification-message">{{ qualityNotificationMessage }}</span>
+        </div>
+
         <!-- Recording Badge with Session Info -->
         <div *ngIf="streamStatus === 'recording'" class="live-indicator">
           <span class="recording-badge">● RECORDING</span>
