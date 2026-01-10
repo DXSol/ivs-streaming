@@ -57,6 +57,24 @@
   }
 }
 
+.company-tabs {
+  margin-bottom: 24px;
+
+  ion-segment {
+    --background: #f9fafb;
+    border-radius: 8px;
+    padding: 4px;
+  }
+
+  ion-segment-button {
+    --indicator-color: var(--theme-accent-maroon, #9d174d);
+    --color: #000;
+    --color-checked: #000;
+    min-height: 40px;
+    font-weight: 500;
+  }
+}
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -133,6 +151,23 @@
     letter-spacing: 0.05em;
     font-weight: 600;
     white-space: nowrap;
+
+    &.sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease, color 0.2s ease;
+
+      &:hover {
+        background-color: #f3f4f6;
+        color: var(--theme-accent-maroon, #9d174d);
+      }
+
+      .sort-indicator {
+        margin-left: 4px;
+        font-weight: 700;
+        color: var(--theme-accent-maroon, #9d174d);
+      }
+    }
   }
 
   td {

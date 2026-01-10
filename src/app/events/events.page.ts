@@ -133,9 +133,9 @@ export class EventsPage implements OnInit, OnDestroy, ViewWillEnter {
     
     // Reload events list every time the page is entered
     await this.load();
-    
-    await this.loadSeasonTicketPrice();
+
     if (this.isLoggedIn) {
+      await this.loadSeasonTicketPrice();
       await this.loadUserTicketStatus();
       await this.loadRecordingExpiryInfo();
       // Check for any pending payments that may have completed via webhook

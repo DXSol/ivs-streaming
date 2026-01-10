@@ -399,10 +399,10 @@ router.get(
       const { startDate, endDate, eventId } = req.query;
 
       let query = `
-      SELECT 
+      SELECT
         i.id, i.invoice_number, i.invoice_date, i.invoice_type, i.event_id,
         i.customer_name, i.subtotal_paise, i.cgst_paise, i.sgst_paise, i.igst_paise,
-        i.total_paise, i.currency,
+        i.total_paise, i.currency, i.company_name,
         e.title as event_title,
         p.provider_payment_id as razorpay_payment_id
       FROM invoices i
@@ -420,7 +420,8 @@ router.get(
       }
 
       if (endDate) {
-        query += ` AND i.invoice_date <= $${paramIndex}`;
+        // Add one day to endDate to include the entire end date (00:00:00 to 23:59:59)
+        query += ` AND i.invoice_date < $${paramIndex}::date + interval '1 day'`;
         params.push(endDate);
         paramIndex++;
       }
@@ -622,7 +623,8 @@ router.get(
       }
 
       if (endDate) {
-        query += ` AND i.invoice_date <= $${paramIndex}`;
+        // Add one day to endDate to include the entire end date (00:00:00 to 23:59:59)
+        query += ` AND i.invoice_date < $${paramIndex}::date + interval '1 day'`;
         params.push(endDate);
         paramIndex++;
       }
