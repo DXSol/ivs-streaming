@@ -113,9 +113,7 @@ export class IvsPlayerService {
    * These settings can help diagnose or mitigate playback issues.
    */
   private applyPlayerConfig(player: any, config: IvsPlayerConfig): void {
-    const log = config.verboseLogging
-      ? (msg: string, data?: any) => console.log(`[IvsPlayerService] ${msg}`, data || '')
-      : () => {};
+    const log = (msg: string, data?: any) => console.log(`[IvsPlayerService] ${msg}`, data || '');
 
     log('Applying player configuration', config);
 
@@ -133,13 +131,6 @@ export class IvsPlayerService {
       log('Auto quality mode disabled');
     }
 
-    // Set maximum bitrate for auto quality
-    // This limits how high the player will go, reducing sudden quality jumps
-    if (config.maxBitrate && config.maxBitrate > 0 && typeof player.setAutoMaxBitrate === 'function') {
-      player.setAutoMaxBitrate(config.maxBitrate);
-      log(`Max bitrate set to ${config.maxBitrate} bps`);
-    }
-
     // Set rebuffer to live behavior
     // Setting to false prevents automatic seeking to live edge after rebuffering
     if (typeof player.setRebufferToLive === 'function') {
@@ -147,18 +138,77 @@ export class IvsPlayerService {
       log('Rebuffer to live disabled');
     }
 
-    // Log available player methods for debugging
-    if (config.verboseLogging) {
-      log('Available player methods:', Object.keys(player).filter(k => typeof player[k] === 'function'));
+    // Set maximum bitrate for auto quality - enforce strictly
+    // This limits how high the player will go, reducing stalls on variable connections
+    if (config.maxBitrate && config.maxBitrate > 0) {
+      const maxBitrate = config.maxBitrate;
 
-      // Log available qualities after a short delay (once manifest is loaded)
+      // Apply immediately if method exists
+      if (typeof player.setAutoMaxBitrate === 'function') {
+        player.setAutoMaxBitrate(maxBitrate);
+        log(`Max bitrate set to ${maxBitrate} bps (${(maxBitrate / 1000000).toFixed(1)} Mbps)`);
+      }
+
+      // Enforce on EVERY quality change - ABR may try to exceed the limit
+      const PlayerEventType = window.IVSPlayer?.PlayerEventType;
+      if (PlayerEventType?.QUALITY_CHANGED) {
+        player.addEventListener(PlayerEventType.QUALITY_CHANGED, (quality: any) => {
+          log(`Quality changed to: ${quality?.name} (${quality?.bitrate} bps)`);
+
+          // Re-apply max bitrate on every quality change
+          if (typeof player.setAutoMaxBitrate === 'function') {
+            player.setAutoMaxBitrate(maxBitrate);
+          }
+
+          // If current quality exceeds max, force switch to a lower one
+          if (quality?.bitrate > maxBitrate) {
+            log(`Quality ${quality.name} exceeds max bitrate (${maxBitrate}), forcing lower quality`);
+            const qualities = player.getQualities?.() || [];
+
+            // Find the highest quality that's still under the limit
+            const suitableQualities = qualities
+              .filter((q: any) => q.bitrate <= maxBitrate)
+              .sort((a: any, b: any) => b.bitrate - a.bitrate);
+
+            if (suitableQualities.length > 0 && typeof player.setQuality === 'function') {
+              const targetQuality = suitableQualities[0];
+              player.setQuality(targetQuality);
+              log(`Forced switch to: ${targetQuality.name} (${targetQuality.bitrate} bps)`);
+            }
+          }
+        });
+      }
+
+      // Also enforce after manifest loads (initial quality selection)
       setTimeout(() => {
-        if (typeof player.getQualities === 'function') {
-          const qualities = player.getQualities();
-          log('Available qualities:', qualities);
+        const currentQuality = player.getQuality?.();
+        if (currentQuality?.bitrate > maxBitrate) {
+          log(`Initial quality ${currentQuality.name} exceeds max, switching...`);
+          const qualities = player.getQualities?.() || [];
+          const suitableQualities = qualities
+            .filter((q: any) => q.bitrate <= maxBitrate)
+            .sort((a: any, b: any) => b.bitrate - a.bitrate);
+
+          if (suitableQualities.length > 0 && typeof player.setQuality === 'function') {
+            player.setQuality(suitableQualities[0]);
+            log(`Switched to: ${suitableQualities[0].name}`);
+          }
         }
-      }, 2000);
+      }, 3000);
     }
+
+    // Log available player methods and qualities for debugging
+    log('Available player methods:', Object.keys(player).filter(k => typeof player[k] === 'function'));
+
+    // Log available qualities after manifest loads
+    setTimeout(() => {
+      if (typeof player.getQualities === 'function') {
+        const qualities = player.getQualities();
+        log('Available qualities:', qualities);
+        const currentQuality = player.getQuality?.();
+        log('Current quality:', currentQuality);
+      }
+    }, 3000);
   }
 
   /**

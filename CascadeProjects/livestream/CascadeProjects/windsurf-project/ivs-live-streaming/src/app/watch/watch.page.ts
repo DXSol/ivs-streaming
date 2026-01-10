@@ -129,6 +129,13 @@ export class WatchPage implements OnInit, OnDestroy {
   private maxErrorRetries = 3;
   private errorRetryTimer?: any;
   private lastErrorTime = 0;
+  private cachedTokenUrl: string | null = null; // Pre-fetched token URL for error recovery
+
+  // Stall detection and recovery
+  private stallCount = 0;
+  private lastStallRecoveryTime = 0;
+  private stallRecoveryTimer?: any;
+  private consecutiveStalls = 0;
 
   // Cached YouTube embed URL to prevent iframe re-rendering
   private cachedYouTubeEmbedUrl: SafeResourceUrl | null = null;
@@ -303,8 +310,7 @@ export class WatchPage implements OnInit, OnDestroy {
       const playerConfig: IvsPlayerConfig = {
         disableLowLatency: true,  // Increases buffer, reduces micro-buffering and position jumps
         verboseLogging: this.debugMode,  // Only verbose logging in debug mode
-        // disableAutoQuality: true, // Prevents ABR switching, may reduce audio glitches (optional)
-        // maxBitrate: 3000000,      // Limits max bitrate to 3 Mbps (optional)
+        maxBitrate: 3500000,      // Limit to 3.5 Mbps (720p) to prevent stalls - 1080p is 6.4 Mbps
       };
 
       this.logDiagnostic('state', 'Creating player', { url: playbackUrl, hasToken: !!token });
@@ -635,6 +641,17 @@ export class WatchPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Schedule token pre-fetch for seamless playback.
+   *
+   * IMPORTANT: For IVS live streams, we do NOT reload the player when refreshing tokens.
+   * The token is only used for the initial manifest fetch. Once playback starts, the player
+   * continues without needing the token. We pre-fetch a new token so it's ready if the
+   * player needs to recover from an error or if we need to reload for any reason.
+   *
+   * Reloading the player with player.load() causes it to restart from the live edge,
+   * which resets playback position and causes the buffering/jumping issues.
+   */
   private scheduleRefresh(eventId: string, playbackUrl: string, expiresAtIso: string) {
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
@@ -644,7 +661,7 @@ export class WatchPage implements OnInit, OnDestroy {
     const expiresAt = new Date(expiresAtIso).getTime();
     const now = Date.now();
 
-    // Refresh ~90 seconds before expiry; min 30s.
+    // Pre-fetch new token ~90 seconds before expiry; min 30s.
     const delayMs = Math.max(30_000, expiresAt - now - 90_000);
 
     // Update token status for diagnostics
@@ -652,93 +669,61 @@ export class WatchPage implements OnInit, OnDestroy {
     this.tokenStatus.expiresAt = expiresAtIso;
     this.tokenStatus.timeUntilRefresh = Math.round(delayMs / 1000);
 
-    this.logDiagnostic('token', `Token refresh scheduled`, {
+    this.logDiagnostic('token', `Token pre-fetch scheduled (no reload)`, {
       expiresAt: expiresAtIso,
       refreshInSeconds: Math.round(delayMs / 1000),
       refreshInMinutes: (delayMs / 60000).toFixed(1),
     });
 
     this.refreshTimer = setTimeout(async () => {
-      const positionBeforeRefresh = this.player?.getPosition?.() || 0;
-      const bufferBeforeRefresh = this.player?.getBufferDuration?.() || 0;
+      const currentPosition = this.player?.getPosition?.() || 0;
+      const currentBuffer = this.player?.getBufferDuration?.() || 0;
       const refreshStartTime = Date.now();
 
-      this.tokenStatus.positionBeforeRefresh = positionBeforeRefresh;
+      this.tokenStatus.positionBeforeRefresh = currentPosition;
 
-      this.logDiagnostic('token', 'Token refresh STARTING', {
-        positionBefore: positionBeforeRefresh.toFixed(2),
-        bufferBefore: bufferBeforeRefresh.toFixed(2),
+      this.logDiagnostic('token', 'Token pre-fetch STARTING (player continues uninterrupted)', {
+        currentPosition: currentPosition.toFixed(2),
+        currentBuffer: currentBuffer.toFixed(2),
       });
 
       try {
+        // Pre-fetch new token for future use (error recovery, etc.)
         const { token, expiresAt: nextExpires } = await this.ivsApi.getPlaybackToken(eventId);
-        const urlWithToken = `${playbackUrl}?token=${encodeURIComponent(token)}`;
+
+        // Store the fresh token URL for error recovery
+        this.cachedTokenUrl = `${playbackUrl}?token=${encodeURIComponent(token)}`;
 
         const tokenFetchDuration = Date.now() - refreshStartTime;
 
-        this.logDiagnostic('token', `New token received (${tokenFetchDuration}ms)`, {
-          fetchDuration: tokenFetchDuration,
-          newExpiresAt: nextExpires,
-        });
-
-        // Reload the playlist with a fresh token.
-        if (this.player?.load) {
-          this.player.load(urlWithToken);
-          await this.player.play();
-        }
-
-        const positionAfterRefresh = this.player?.getPosition?.() || 0;
-        const bufferAfterRefresh = this.player?.getBufferDuration?.() || 0;
-        const totalRefreshDuration = Date.now() - refreshStartTime;
-
-        this.tokenStatus.positionAfterRefresh = positionAfterRefresh;
+        this.tokenStatus.positionAfterRefresh = currentPosition; // Position unchanged
         this.tokenStatus.lastRefreshAt = new Date();
         this.tokenStatus.refreshCount++;
 
-        const positionDelta = positionAfterRefresh - positionBeforeRefresh;
-        const isAnomalousJump = Math.abs(positionDelta) > 1;
+        this.logDiagnostic('token', `Token pre-fetched successfully (${tokenFetchDuration}ms) - NO RELOAD`, {
+          fetchDuration: tokenFetchDuration,
+          newExpiresAt: nextExpires,
+          position: currentPosition.toFixed(2),
+          buffer: currentBuffer.toFixed(2),
+          refreshCount: this.tokenStatus.refreshCount,
+        });
 
-        this.logDiagnostic(
-          'token',
-          `Token refresh COMPLETED (${totalRefreshDuration}ms)`,
-          {
-            positionBefore: positionBeforeRefresh.toFixed(2),
-            positionAfter: positionAfterRefresh.toFixed(2),
-            positionDelta: positionDelta.toFixed(2),
-            bufferBefore: bufferBeforeRefresh.toFixed(2),
-            bufferAfter: bufferAfterRefresh.toFixed(2),
-            totalDuration: totalRefreshDuration,
-            refreshCount: this.tokenStatus.refreshCount,
-          },
-          isAnomalousJump
-        );
-
-        if (isAnomalousJump) {
-          this.logDiagnostic(
-            'anomaly',
-            `Position jump during token refresh: ${positionDelta.toFixed(2)}s`,
-            {
-              positionBefore: positionBeforeRefresh.toFixed(2),
-              positionAfter: positionAfterRefresh.toFixed(2),
-              delta: positionDelta.toFixed(2),
-            },
-            true
-          );
-        }
-
-        // Reset position tracking after token refresh
-        this.lastPosition = positionAfterRefresh;
-        this.lastPositionTime = Date.now();
-
+        // Schedule next pre-fetch
         this.scheduleRefresh(eventId, playbackUrl, nextExpires);
       } catch (err: any) {
         const failureDuration = Date.now() - refreshStartTime;
-        this.logDiagnostic('error', `Token refresh FAILED after ${failureDuration}ms`, {
+        this.logDiagnostic('error', `Token pre-fetch FAILED after ${failureDuration}ms`, {
           error: err?.message || 'Unknown error',
           duration: failureDuration,
         }, true);
-        // If refresh fails, user can re-open watch page.
-        this.errorMessage = 'Session expired. Please reopen the stream.';
+
+        // Don't show error to user - playback may continue fine
+        // Only show error if playback actually fails
+        this.logDiagnostic('token', 'Playback continues - will retry token fetch on next schedule');
+
+        // Retry sooner (30 seconds)
+        const retryExpiry = new Date(Date.now() + 30000).toISOString();
+        this.scheduleRefresh(eventId, playbackUrl, retryExpiry);
       }
     }, delayMs);
   }
@@ -763,6 +748,10 @@ export class WatchPage implements OnInit, OnDestroy {
     if (this.errorRetryTimer) {
       clearTimeout(this.errorRetryTimer);
       this.errorRetryTimer = undefined;
+    }
+    if (this.stallRecoveryTimer) {
+      clearTimeout(this.stallRecoveryTimer);
+      this.stallRecoveryTimer = undefined;
     }
     // Stop metrics sampling for diagnostics
     this.stopMetricsSampling();
@@ -934,44 +923,151 @@ export class WatchPage implements OnInit, OnDestroy {
       }
     }
 
-    // Video element event listeners for additional diagnostics
+    // Video element event listeners - stall recovery for all modes, diagnostics for debug mode
     const videoEl = this.videoElRef?.nativeElement;
-    if (videoEl && this.debugMode) {
-      videoEl.addEventListener('waiting', () => {
-        this.logDiagnostic('buffer', 'Video waiting (stalled)', {
-          position: videoEl.currentTime.toFixed(2),
-          readyState: videoEl.readyState,
-          networkState: videoEl.networkState,
-        }, true);
-      });
-
-      videoEl.addEventListener('stalled', () => {
-        this.logDiagnostic('buffer', 'Video stalled', {
-          position: videoEl.currentTime.toFixed(2),
-          readyState: videoEl.readyState,
-        }, true);
-      });
-
-      videoEl.addEventListener('suspend', () => {
-        this.logDiagnostic('buffer', 'Video suspend (download paused)', {
-          position: videoEl.currentTime.toFixed(2),
+    if (videoEl) {
+      // Stall recovery - always active for live streams
+      if (!this.isRecordingMode) {
+        videoEl.addEventListener('waiting', () => {
+          this.handleVideoStall(videoEl);
         });
-      });
 
-      videoEl.addEventListener('seeking', () => {
-        this.logDiagnostic('seek', 'Seeking started', {
-          position: videoEl.currentTime.toFixed(2),
+        // Playing event resets stall counter
+        videoEl.addEventListener('playing', () => {
+          this.consecutiveStalls = 0;
         });
-      });
+      }
 
-      videoEl.addEventListener('seeked', () => {
-        this.logDiagnostic('seek', 'Seeking ended', {
-          position: videoEl.currentTime.toFixed(2),
+      // Additional diagnostics only in debug mode
+      if (this.debugMode) {
+        videoEl.addEventListener('waiting', () => {
+          this.logDiagnostic('buffer', 'Video waiting (stalled)', {
+            position: videoEl.currentTime.toFixed(2),
+            readyState: videoEl.readyState,
+            networkState: videoEl.networkState,
+            consecutiveStalls: this.consecutiveStalls,
+          }, true);
         });
-        // Reset position tracking after user seek
-        this.lastPosition = videoEl.currentTime;
-        this.lastPositionTime = Date.now();
-      });
+
+        videoEl.addEventListener('stalled', () => {
+          this.logDiagnostic('buffer', 'Video stalled', {
+            position: videoEl.currentTime.toFixed(2),
+            readyState: videoEl.readyState,
+          }, true);
+        });
+
+        videoEl.addEventListener('suspend', () => {
+          this.logDiagnostic('buffer', 'Video suspend (download paused)', {
+            position: videoEl.currentTime.toFixed(2),
+          });
+        });
+
+        videoEl.addEventListener('seeking', () => {
+          this.logDiagnostic('seek', 'Seeking started', {
+            position: videoEl.currentTime.toFixed(2),
+          });
+        });
+
+        videoEl.addEventListener('seeked', () => {
+          this.logDiagnostic('seek', 'Seeking ended', {
+            position: videoEl.currentTime.toFixed(2),
+          });
+          // Reset position tracking after user seek
+          this.lastPosition = videoEl.currentTime;
+          this.lastPositionTime = Date.now();
+        });
+      }
+    }
+  }
+
+  /**
+   * Handle video stall events with progressive recovery.
+   * For persistent stalls, attempts to recover by seeking or reloading.
+   */
+  private handleVideoStall(videoEl: HTMLVideoElement): void {
+    this.stallCount++;
+    this.consecutiveStalls++;
+    const now = Date.now();
+
+    // Don't attempt recovery too frequently (wait at least 3 seconds between attempts)
+    if (now - this.lastStallRecoveryTime < 3000) {
+      return;
+    }
+
+    this.logDiagnostic('state', `Stall detected (${this.consecutiveStalls} consecutive)`, {
+      position: videoEl.currentTime.toFixed(2),
+      readyState: videoEl.readyState,
+      buffer: this.player?.getBufferDuration?.()?.toFixed(2),
+    });
+
+    // Clear any existing recovery timer
+    if (this.stallRecoveryTimer) {
+      clearTimeout(this.stallRecoveryTimer);
+    }
+
+    // Schedule recovery attempt after a short delay to see if it resolves naturally
+    this.stallRecoveryTimer = setTimeout(() => {
+      // Check if still stalled (readyState 2 = HAVE_CURRENT_DATA, not enough to play)
+      if (videoEl.readyState <= 2 && !videoEl.paused) {
+        this.attemptStallRecovery(videoEl);
+      }
+    }, 2000);
+  }
+
+  /**
+   * Attempt to recover from a persistent stall.
+   */
+  private attemptStallRecovery(videoEl: HTMLVideoElement): void {
+    this.lastStallRecoveryTime = Date.now();
+
+    const buffer = this.player?.getBufferDuration?.() || 0;
+    const liveLatency = this.player?.getLiveLatency?.() || 0;
+
+    this.logDiagnostic('state', `Attempting stall recovery`, {
+      consecutiveStalls: this.consecutiveStalls,
+      buffer: buffer.toFixed(2),
+      liveLatency: liveLatency.toFixed(2),
+      position: videoEl.currentTime.toFixed(2),
+    });
+
+    // Strategy based on consecutive stalls
+    if (this.consecutiveStalls <= 3) {
+      // Strategy 1: Try to seek slightly forward within buffer
+      if (buffer > 2) {
+        const seekTarget = videoEl.currentTime + 1; // Seek 1 second forward
+        this.logDiagnostic('state', `Recovery: Seeking forward to ${seekTarget.toFixed(2)}`);
+        if (typeof this.player?.seekTo === 'function') {
+          this.player.seekTo(seekTarget);
+        } else {
+          videoEl.currentTime = seekTarget;
+        }
+      }
+    } else if (this.consecutiveStalls <= 6) {
+      // Strategy 2: Seek to live edge
+      this.logDiagnostic('state', 'Recovery: Seeking to live edge');
+      if (typeof this.player?.seekTo === 'function' && liveLatency > 0) {
+        this.player.seekTo(videoEl.currentTime + liveLatency - 3); // 3 seconds behind live
+      }
+    } else if (this.consecutiveStalls <= 10) {
+      // Strategy 3: Lower quality if possible
+      this.logDiagnostic('state', 'Recovery: Attempting to lower quality');
+      const qualities = this.player?.getQualities?.() || [];
+      const currentQuality = this.player?.getQuality?.();
+      if (qualities.length > 1 && currentQuality) {
+        const lowerQuality = qualities.find((q: any) => q.bitrate < currentQuality.bitrate);
+        if (lowerQuality && typeof this.player?.setQuality === 'function') {
+          this.player.setQuality(lowerQuality);
+          this.logDiagnostic('state', `Recovery: Switched to ${lowerQuality.name}`);
+        }
+      }
+    } else {
+      // Strategy 4: Full reload with cached token
+      this.logDiagnostic('state', 'Recovery: Full reload required');
+      this.consecutiveStalls = 0;
+      if (this.cachedTokenUrl && this.player) {
+        this.player.load(this.cachedTokenUrl);
+        this.player.play();
+      }
     }
   }
 
@@ -1075,6 +1171,7 @@ export class WatchPage implements OnInit, OnDestroy {
 
   /**
    * Attempt to recover from a transient error by reloading the player.
+   * Uses the pre-fetched token URL if available, otherwise fetches a new one.
    */
   private async attemptErrorRecovery(): Promise<void> {
     this.errorRetryCount++;
@@ -1082,6 +1179,7 @@ export class WatchPage implements OnInit, OnDestroy {
 
     this.logDiagnostic('state', `Attempting error recovery (${this.errorRetryCount}/${this.maxErrorRetries})`, {
       retryDelay,
+      hasCachedToken: !!this.cachedTokenUrl,
     });
 
     // Clear any existing retry timer
@@ -1098,9 +1196,20 @@ export class WatchPage implements OnInit, OnDestroy {
       }
 
       try {
-        // Get a fresh token and reload
-        const { token, expiresAt } = await this.ivsApi.getPlaybackToken(this.eventId);
-        const urlWithToken = `${this.playbackUrl}?token=${encodeURIComponent(token)}`;
+        let urlWithToken: string;
+        let expiresAt: string;
+
+        // Use cached token if available, otherwise fetch new one
+        if (this.cachedTokenUrl) {
+          urlWithToken = this.cachedTokenUrl;
+          expiresAt = this.tokenExpiresAt; // Use existing expiry
+          this.logDiagnostic('state', 'Using cached token for recovery');
+        } else {
+          const tokenResult = await this.ivsApi.getPlaybackToken(this.eventId);
+          urlWithToken = `${this.playbackUrl}?token=${encodeURIComponent(tokenResult.token)}`;
+          expiresAt = tokenResult.expiresAt;
+          this.logDiagnostic('state', 'Fetched new token for recovery');
+        }
 
         this.player.load(urlWithToken);
         await this.player.play();
@@ -1112,7 +1221,7 @@ export class WatchPage implements OnInit, OnDestroy {
 
         this.logDiagnostic('state', 'Error recovery successful');
 
-        // Re-schedule token refresh
+        // Re-schedule token pre-fetch
         this.scheduleRefresh(this.eventId, this.playbackUrl, expiresAt);
       } catch (err: any) {
         this.logDiagnostic('error', `Error recovery failed: ${err?.message}`);
